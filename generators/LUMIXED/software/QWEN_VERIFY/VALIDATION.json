@@ -1,0 +1,1089 @@
+{
+  "status": "COMPLETED",
+  "run": "runs/20261118-202449_B8_RF4_YS2_ID16_R4",
+  "configuration": {
+    "B": 8,
+    "RF": 4,
+    "YS": 2,
+    "DMA_ID": 16,
+    "R": 4
+  },
+  "completed_cases": 15,
+  "exact_output_elements": 98304,
+  "outside_source_hashes_unchanged": 21,
+  "native_llamacpp": "NOT_BIT_IDENTICAL",
+  "results": {
+    "configuration": {
+      "B": 8,
+      "RF": 4,
+      "YS": 2,
+      "DMA_ID": 16,
+      "R": 4
+    },
+    "rows": [
+      {
+        "bits": 8,
+        "case": "Q",
+        "R": 4,
+        "K": 1024,
+        "N": 2048,
+        "group_size": 32,
+        "occurrences": 28,
+        "simulator_exit": 0,
+        "elapsed_seconds": 319.1188344120019,
+        "cycles": {
+          "total": 2423798,
+          "load_x": 29430,
+          "generate_brams": 16640,
+          "load_w": 2339251,
+          "select_accumulate": 835137,
+          "store_o": 8691,
+          "load_w_and_select": 2369037
+        },
+        "exact_comparison": {
+          "elements": 8192,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 8192,
+          "bit_mismatches": 8192,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.013539314270019531,
+          "max_relative_error": 275.0352272727273,
+          "rmse": 0.0013909407083183903,
+          "max_ulp_error": 1969135219,
+          "nonfinite_pairs": 0
+        },
+        "reused_from": "/home/kioannou/Projects/chipyard-workspace/chipyard/generators/LUMIXED/software/QWEN_VERIFY/runs/20261118-201128_B8_RF4_YS2_ID16_R4",
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.3799240160622244,
+          "native_output_rms": 0.36611023507673746,
+          "mean_absolute_error": 0.0010398572199902256,
+          "cosine_similarity": 0.9999929201368859
+        }
+      },
+      {
+        "bits": 8,
+        "case": "K_V",
+        "R": 4,
+        "K": 1024,
+        "N": 1024,
+        "group_size": 32,
+        "occurrences": 56,
+        "simulator_exit": 0,
+        "elapsed_seconds": 153.8701114409996,
+        "cycles": {
+          "total": 1103574,
+          "load_x": 17045,
+          "generate_brams": 16640,
+          "load_w": 1051792,
+          "select_accumulate": 433618,
+          "store_o": 4255,
+          "load_w_and_select": 1065634
+        },
+        "exact_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 4096,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.004039068706333637,
+          "max_relative_error": 26.103296017455573,
+          "rmse": 0.0010854167808636238,
+          "max_ulp_error": 1968756761,
+          "nonfinite_pairs": 0
+        },
+        "reused_from": "/home/kioannou/Projects/chipyard-workspace/chipyard/generators/LUMIXED/software/QWEN_VERIFY/runs/20261118-201128_B8_RF4_YS2_ID16_R4",
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.7247379519543252,
+          "native_output_rms": 0.14976679197449158,
+          "mean_absolute_error": 0.000860419366849996,
+          "cosine_similarity": 0.9999737495405483
+        }
+      },
+      {
+        "bits": 8,
+        "case": "O",
+        "R": 4,
+        "K": 2048,
+        "N": 1024,
+        "group_size": 32,
+        "occurrences": 28,
+        "simulator_exit": 0,
+        "elapsed_seconds": 276.67341534799925,
+        "cycles": {
+          "total": 2440488,
+          "load_x": 34554,
+          "generate_brams": 33280,
+          "load_w": 2339713,
+          "select_accumulate": 834965,
+          "store_o": 3873,
+          "load_w_and_select": 2368781
+        },
+        "exact_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 4096,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.005402863025665283,
+          "max_relative_error": 37.21717434597628,
+          "rmse": 0.0010819458996020363,
+          "max_ulp_error": 1968267090,
+          "nonfinite_pairs": 0
+        },
+        "reused_from": "/home/kioannou/Projects/chipyard-workspace/chipyard/generators/LUMIXED/software/QWEN_VERIFY/runs/20261118-201128_B8_RF4_YS2_ID16_R4",
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.5495283110194388,
+          "native_output_rms": 0.19688628918770387,
+          "mean_absolute_error": 0.000847727473324511,
+          "cosine_similarity": 0.9999849191743885
+        }
+      },
+      {
+        "bits": 8,
+        "case": "GATE_UP",
+        "R": 4,
+        "K": 1024,
+        "N": 3072,
+        "group_size": 32,
+        "occurrences": 56,
+        "simulator_exit": 0,
+        "elapsed_seconds": 502.0088622969997,
+        "cycles": {
+          "total": 3680439,
+          "load_x": 42674,
+          "generate_brams": 16640,
+          "load_w": 3562114,
+          "select_accumulate": 1240180,
+          "store_o": 11952,
+          "load_w_and_select": 3609173
+        },
+        "exact_comparison": {
+          "elements": 12288,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 12288,
+          "bit_mismatches": 12288,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.024289488792419434,
+          "max_relative_error": 87.39872318097015,
+          "rmse": 0.004575618576485852,
+          "max_ulp_error": 2000946879,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.5397632475458657,
+          "native_output_rms": 0.847708434631251,
+          "mean_absolute_error": 0.0035284354470562405,
+          "cosine_similarity": 0.9999856689391035
+        }
+      },
+      {
+        "bits": 8,
+        "case": "DOWN",
+        "R": 4,
+        "K": 3072,
+        "N": 1024,
+        "group_size": 32,
+        "occurrences": 28,
+        "simulator_exit": 0,
+        "elapsed_seconds": 395.55046460500307,
+        "cycles": {
+          "total": 3536689,
+          "load_x": 53599,
+          "generate_brams": 49920,
+          "load_w": 3376996,
+          "select_accumulate": 1255475,
+          "store_o": 4249,
+          "load_w_and_select": 3428921
+        },
+        "exact_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 4096,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0061948299407958984,
+          "max_relative_error": 23.309642942918902,
+          "rmse": 0.0014586634026016294,
+          "max_ulp_error": 1967848928,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.8570717995528662,
+          "native_output_rms": 0.17019150593481366,
+          "mean_absolute_error": 0.0011280254738399442,
+          "cosine_similarity": 0.9999632820171982
+        }
+      },
+      {
+        "bits": 4,
+        "case": "Q",
+        "R": 4,
+        "K": 1024,
+        "N": 2048,
+        "group_size": 32,
+        "occurrences": 28,
+        "simulator_exit": 0,
+        "elapsed_seconds": 162.8594712500053,
+        "cycles": {
+          "total": 655718,
+          "load_x": 27355,
+          "generate_brams": 1280,
+          "load_w": 582758,
+          "select_accumulate": 543464,
+          "store_o": 8581,
+          "load_w_and_select": 618502
+        },
+        "exact_comparison": {
+          "elements": 8192,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 8192,
+          "bit_mismatches": 8192,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.012850522994995117,
+          "max_relative_error": 8.47988461428951,
+          "rmse": 0.0014084099640050568,
+          "max_ulp_error": 1960309213,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.383985513762457,
+          "native_output_rms": 0.36678726502071546,
+          "mean_absolute_error": 0.0010250790293635514,
+          "cosine_similarity": 0.9999926466073272
+        }
+      },
+      {
+        "bits": 4,
+        "case": "K_V",
+        "R": 4,
+        "K": 1024,
+        "N": 1024,
+        "group_size": 32,
+        "occurrences": 56,
+        "simulator_exit": 0,
+        "elapsed_seconds": 82.25199749699823,
+        "cycles": {
+          "total": 307007,
+          "load_x": 14768,
+          "generate_brams": 1280,
+          "load_w": 261576,
+          "select_accumulate": 269168,
+          "store_o": 3554,
+          "load_w_and_select": 287405
+        },
+        "exact_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 4096,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.00615151971578598,
+          "max_relative_error": 19.92787971148242,
+          "rmse": 0.00107288454101683,
+          "max_ulp_error": 1967599073,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.7148578028047896,
+          "native_output_rms": 0.15008363017194476,
+          "mean_absolute_error": 0.0008471527829936321,
+          "cosine_similarity": 0.9999744519774998
+        }
+      },
+      {
+        "bits": 4,
+        "case": "O",
+        "R": 4,
+        "K": 2048,
+        "N": 1024,
+        "group_size": 32,
+        "occurrences": 28,
+        "simulator_exit": 0,
+        "elapsed_seconds": 117.18386727199686,
+        "cycles": {
+          "total": 656400,
+          "load_x": 30281,
+          "generate_brams": 2560,
+          "load_w": 583831,
+          "select_accumulate": 543126,
+          "store_o": 4174,
+          "load_w_and_select": 619385
+        },
+        "exact_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 4096,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.012552976608276367,
+          "max_relative_error": 11.810021210075153,
+          "rmse": 0.0011348911608961368,
+          "max_ulp_error": 1963203577,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.5750093282208203,
+          "native_output_rms": 0.1973691738893506,
+          "mean_absolute_error": 0.0008699188392924384,
+          "cosine_similarity": 0.9999835696530902
+        }
+      },
+      {
+        "bits": 4,
+        "case": "GATE_UP",
+        "R": 4,
+        "K": 1024,
+        "N": 3072,
+        "group_size": 32,
+        "occurrences": 56,
+        "simulator_exit": 0,
+        "elapsed_seconds": 241.4448562779944,
+        "cycles": {
+          "total": 991454,
+          "load_x": 40716,
+          "generate_brams": 1280,
+          "load_w": 894783,
+          "select_accumulate": 815087,
+          "store_o": 11266,
+          "load_w_and_select": 938192
+        },
+        "exact_comparison": {
+          "elements": 12288,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 12288,
+          "bit_mismatches": 12288,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.025542616844177246,
+          "max_relative_error": 27.257797746781115,
+          "rmse": 0.004355568562433419,
+          "max_ulp_error": 1991557955,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.5200279628334251,
+          "native_output_rms": 0.8375642991776198,
+          "mean_absolute_error": 0.003367318382935025,
+          "cosine_similarity": 0.9999864785344784
+        }
+      },
+      {
+        "bits": 4,
+        "case": "DOWN",
+        "R": 4,
+        "K": 3072,
+        "N": 1024,
+        "group_size": 32,
+        "occurrences": 28,
+        "simulator_exit": 0,
+        "elapsed_seconds": 149.88087338300102,
+        "cycles": {
+          "total": 994518,
+          "load_x": 47459,
+          "generate_brams": 3840,
+          "load_w": 873752,
+          "select_accumulate": 813010,
+          "store_o": 3949,
+          "load_w_and_select": 939270
+        },
+        "exact_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 4096,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0065490007400512695,
+          "max_relative_error": 10.836608766358491,
+          "rmse": 0.0013773937746238188,
+          "max_ulp_error": 1976191700,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.8216563032044549,
+          "native_output_rms": 0.1676362451370471,
+          "mean_absolute_error": 0.0010597745163813954,
+          "cosine_similarity": 0.9999663061551192
+        }
+      },
+      {
+        "bits": 2,
+        "case": "Q",
+        "R": 4,
+        "K": 1024,
+        "N": 2048,
+        "group_size": 64,
+        "occurrences": 28,
+        "simulator_exit": 0,
+        "elapsed_seconds": 151.29730101300083,
+        "cycles": {
+          "total": 546677,
+          "load_x": 14753,
+          "generate_brams": 512,
+          "load_w": 265457,
+          "select_accumulate": 524296,
+          "store_o": 7092,
+          "load_w_and_select": 524320
+        },
+        "exact_comparison": {
+          "elements": 8192,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 8192,
+          "bit_mismatches": 8192,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.010668754577636719,
+          "max_relative_error": 67.95035440162907,
+          "rmse": 0.0014334920321990847,
+          "max_ulp_error": 1957382299,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.4155716071621537,
+          "native_output_rms": 0.3449446515338441,
+          "mean_absolute_error": 0.0010793333551293305,
+          "cosine_similarity": 0.999991391042863
+        }
+      },
+      {
+        "bits": 2,
+        "case": "K_V",
+        "R": 4,
+        "K": 1024,
+        "N": 1024,
+        "group_size": 64,
+        "occurrences": 56,
+        "simulator_exit": 0,
+        "elapsed_seconds": 79.95928576199367,
+        "cycles": {
+          "total": 274567,
+          "load_x": 8724,
+          "generate_brams": 512,
+          "load_w": 115522,
+          "select_accumulate": 262152,
+          "store_o": 3155,
+          "load_w_and_select": 262176
+        },
+        "exact_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 4096,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.005180925130844116,
+          "max_relative_error": 22.207616174609008,
+          "rmse": 0.0011579278161826365,
+          "max_ulp_error": 1963612837,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.687639659521634,
+          "native_output_rms": 0.16839165690183802,
+          "mean_absolute_error": 0.0009195546127260812,
+          "cosine_similarity": 0.9999763684682402
+        }
+      },
+      {
+        "bits": 2,
+        "case": "O",
+        "R": 4,
+        "K": 2048,
+        "N": 1024,
+        "group_size": 64,
+        "occurrences": 28,
+        "simulator_exit": 0,
+        "elapsed_seconds": 102.95248950400128,
+        "cycles": {
+          "total": 546662,
+          "load_x": 17712,
+          "generate_brams": 1024,
+          "load_w": 240240,
+          "select_accumulate": 524296,
+          "store_o": 3606,
+          "load_w_and_select": 524320
+        },
+        "exact_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 4096,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.005571693181991577,
+          "max_relative_error": 5.347379277634594,
+          "rmse": 0.0012307312067465278,
+          "max_ulp_error": 1969603610,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.5816795609943457,
+          "native_output_rms": 0.21158233661204603,
+          "mean_absolute_error": 0.0009573196488670277,
+          "cosine_similarity": 0.9999831168195248
+        }
+      },
+      {
+        "bits": 2,
+        "case": "GATE_UP",
+        "R": 4,
+        "K": 1024,
+        "N": 3072,
+        "group_size": 64,
+        "occurrences": 56,
+        "simulator_exit": 0,
+        "elapsed_seconds": 214.60477813400212,
+        "cycles": {
+          "total": 819907,
+          "load_x": 21282,
+          "generate_brams": 512,
+          "load_w": 432874,
+          "select_accumulate": 786440,
+          "store_o": 11649,
+          "load_w_and_select": 786464
+        },
+        "exact_comparison": {
+          "elements": 12288,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 12288,
+          "bit_mismatches": 12288,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.020826101303100586,
+          "max_relative_error": 129.19334403323262,
+          "rmse": 0.004354069070099234,
+          "max_ulp_error": 2007157803,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.5878724368056482,
+          "native_output_rms": 0.7406486165192863,
+          "mean_absolute_error": 0.0033695831517112453,
+          "cosine_similarity": 0.9999827205673678
+        }
+      },
+      {
+        "bits": 2,
+        "case": "DOWN",
+        "R": 4,
+        "K": 3072,
+        "N": 1024,
+        "group_size": 64,
+        "occurrences": 28,
+        "simulator_exit": 0,
+        "elapsed_seconds": 127.45277978100057,
+        "cycles": {
+          "total": 819955,
+          "load_x": 27956,
+          "generate_brams": 1536,
+          "load_w": 418216,
+          "select_accumulate": 786448,
+          "store_o": 3967,
+          "load_w_and_select": 786496
+        },
+        "exact_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 0,
+          "bit_exact": true,
+          "within_tolerance": true,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.0,
+          "max_relative_error": 0.0,
+          "rmse": 0.0,
+          "max_ulp_error": 0,
+          "nonfinite_pairs": 0
+        },
+        "rtl_exact_pass": true,
+        "native_comparison": {
+          "elements": 4096,
+          "bit_mismatches": 4096,
+          "bit_exact": false,
+          "within_tolerance": false,
+          "atol": 0.0,
+          "rtol": 0.0,
+          "max_abs_error": 0.006521165370941162,
+          "max_relative_error": 149.53557110935856,
+          "rmse": 0.0015773902868138115,
+          "max_ulp_error": 1975122027,
+          "nonfinite_pairs": 0
+        },
+        "native_relative_metrics": {
+          "normalized_rmse_percent": 0.8592503350869165,
+          "native_output_rms": 0.18357750033978792,
+          "mean_absolute_error": 0.0012524883818642585,
+          "cosine_similarity": 0.999963083787012
+        }
+      }
+    ],
+    "projection_estimates": [
+      {
+        "bits": 8,
+        "complete": true,
+        "formula": "28*C_Q + 56*C_K_V + 28*C_O + 56*C_GATE_UP + 28*C_DOWN",
+        "projection_calls": 196,
+        "cycles": 503132028,
+        "operations": [
+          {
+            "operation": "Query",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 2048,
+            "cycles_per_matmul": 2423798,
+            "estimated_all_occurrences": 67866344
+          },
+          {
+            "operation": "Key",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 1024,
+            "cycles_per_matmul": 1103574,
+            "estimated_all_occurrences": 30900072
+          },
+          {
+            "operation": "Value",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 1024,
+            "cycles_per_matmul": 1103574,
+            "estimated_all_occurrences": 30900072
+          },
+          {
+            "operation": "Attention output",
+            "occurrences": 28,
+            "R": 4,
+            "K": 2048,
+            "N": 1024,
+            "cycles_per_matmul": 2440488,
+            "estimated_all_occurrences": 68333664
+          },
+          {
+            "operation": "MLP gate",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 3072,
+            "cycles_per_matmul": 3680439,
+            "estimated_all_occurrences": 103052292
+          },
+          {
+            "operation": "MLP up",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 3072,
+            "cycles_per_matmul": 3680439,
+            "estimated_all_occurrences": 103052292
+          },
+          {
+            "operation": "MLP down",
+            "occurrences": 28,
+            "R": 4,
+            "K": 3072,
+            "N": 1024,
+            "cycles_per_matmul": 3536689,
+            "estimated_all_occurrences": 99027292
+          }
+        ],
+        "stages": {
+          "load_x": 6636588,
+          "generate_brams": 4659200,
+          "load_w_and_select": 490457884,
+          "store_o": 1378356
+        },
+        "head_cycles": null,
+        "including_head_cycles": null
+      },
+      {
+        "bits": 4,
+        "complete": true,
+        "formula": "28*C_Q + 56*C_K_V + 28*C_O + 56*C_GATE_UP + 28*C_DOWN",
+        "projection_calls": 196,
+        "cycles": 137299624,
+        "operations": [
+          {
+            "operation": "Query",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 2048,
+            "cycles_per_matmul": 655718,
+            "estimated_all_occurrences": 18360104
+          },
+          {
+            "operation": "Key",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 1024,
+            "cycles_per_matmul": 307007,
+            "estimated_all_occurrences": 8596196
+          },
+          {
+            "operation": "Value",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 1024,
+            "cycles_per_matmul": 307007,
+            "estimated_all_occurrences": 8596196
+          },
+          {
+            "operation": "Attention output",
+            "occurrences": 28,
+            "R": 4,
+            "K": 2048,
+            "N": 1024,
+            "cycles_per_matmul": 656400,
+            "estimated_all_occurrences": 18379200
+          },
+          {
+            "operation": "MLP gate",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 3072,
+            "cycles_per_matmul": 991454,
+            "estimated_all_occurrences": 27760712
+          },
+          {
+            "operation": "MLP up",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 3072,
+            "cycles_per_matmul": 991454,
+            "estimated_all_occurrences": 27760712
+          },
+          {
+            "operation": "MLP down",
+            "occurrences": 28,
+            "R": 4,
+            "K": 3072,
+            "N": 1024,
+            "cycles_per_matmul": 994518,
+            "estimated_all_occurrences": 27846504
+          }
+        ],
+        "stages": {
+          "load_x": 6049764,
+          "generate_brams": 358400,
+          "load_w_and_select": 129593828,
+          "store_o": 1297632
+        },
+        "head_cycles": null,
+        "including_head_cycles": null
+      },
+      {
+        "bits": 2,
+        "complete": true,
+        "formula": "28*C_Q + 56*C_K_V + 28*C_O + 56*C_GATE_UP + 28*C_DOWN",
+        "projection_calls": 196,
+        "cycles": 114862776,
+        "operations": [
+          {
+            "operation": "Query",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 2048,
+            "cycles_per_matmul": 546677,
+            "estimated_all_occurrences": 15306956
+          },
+          {
+            "operation": "Key",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 1024,
+            "cycles_per_matmul": 274567,
+            "estimated_all_occurrences": 7687876
+          },
+          {
+            "operation": "Value",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 1024,
+            "cycles_per_matmul": 274567,
+            "estimated_all_occurrences": 7687876
+          },
+          {
+            "operation": "Attention output",
+            "occurrences": 28,
+            "R": 4,
+            "K": 2048,
+            "N": 1024,
+            "cycles_per_matmul": 546662,
+            "estimated_all_occurrences": 15306536
+          },
+          {
+            "operation": "MLP gate",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 3072,
+            "cycles_per_matmul": 819907,
+            "estimated_all_occurrences": 22957396
+          },
+          {
+            "operation": "MLP up",
+            "occurrences": 28,
+            "R": 4,
+            "K": 1024,
+            "N": 3072,
+            "cycles_per_matmul": 819907,
+            "estimated_all_occurrences": 22957396
+          },
+          {
+            "operation": "MLP down",
+            "occurrences": 28,
+            "R": 4,
+            "K": 3072,
+            "N": 1024,
+            "cycles_per_matmul": 819955,
+            "estimated_all_occurrences": 22958740
+          }
+        ],
+        "stages": {
+          "load_x": 3372124,
+          "generate_brams": 143360,
+          "load_w_and_select": 110107648,
+          "store_o": 1239644
+        },
+        "head_cycles": null,
+        "including_head_cycles": null
+      }
+    ],
+    "all_exact_rtl_pass": true,
+    "completed": 15,
+    "planned": 15,
+    "excluded": [
+      {
+        "bits": 8,
+        "case": "HEAD",
+        "reason": "Vocabulary head excluded from the default 196-projection estimate",
+        "native_weight_format": "q8_0"
+      },
+      {
+        "bits": 4,
+        "case": "HEAD",
+        "reason": "Native tensor uses extra integer subscales and group-16 reconstruction; no lossless simple W4/W2 plus one FP16 group scale mapping was applied",
+        "native_weight_format": "q6_K"
+      },
+      {
+        "bits": 2,
+        "case": "HEAD",
+        "reason": "Native tensor uses extra integer subscales and group-16 reconstruction; no lossless simple W4/W2 plus one FP16 group scale mapping was applied",
+        "native_weight_format": "q6_K"
+      }
+    ]
+  }
+}
