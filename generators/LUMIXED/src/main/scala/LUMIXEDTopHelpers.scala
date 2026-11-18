@@ -11,9 +11,9 @@ trait LUMIXEDTopHelpers {
   // Only the supported power-of-two precisions reach the packing datapath.
   // Keeping the decode explicit avoids inferring general divider/remainder logic.
   protected def wordShift(precision: UInt): UInt = MuxLookup(precision, 0.U(3.W))(Seq(
-    2.U -> 5.U(3.W), 4.U -> 4.U(3.W), 8.U -> 3.U(3.W), 16.U -> 2.U(3.W)))
+    2.U -> 5.U(3.W), 4.U -> 4.U(3.W), 8.U -> 3.U(3.W), 16.U -> 2.U(3.W), 32.U -> 1.U(3.W)))
   protected def bitShift(precision: UInt): UInt = MuxLookup(precision, 0.U(3.W))(Seq(
-    2.U -> 1.U(3.W), 4.U -> 2.U(3.W), 8.U -> 3.U(3.W), 16.U -> 4.U(3.W)))
+    2.U -> 1.U(3.W), 4.U -> 2.U(3.W), 8.U -> 3.U(3.W), 16.U -> 4.U(3.W), 32.U -> 5.U(3.W)))
 
   protected def bankOffset(span: UInt, bank: Int): UInt = {
     // The bank number is an elaboration constant. At most log2(b) shifted

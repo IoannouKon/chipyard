@@ -21,7 +21,7 @@ CHIPYARD_DIR="$(realpath "$SCRIPT_DIR/../../../../..")"
 GEN_DIR="$(realpath "$SCRIPT_DIR/../../..")"
 SCALA_CFG="$GEN_DIR/src/main/scala/Config.scala"
 SIM_DIR="$CHIPYARD_DIR/sims/verilator"
-CONFIG=${CONFIG:-LUMIXEDROcketConfig}
+CONFIG=${CONFIG:-LUMIXEDRocketConfig}
 
 # -----------------------------------------------------------------------------
 # 2. Command-line arguments and validation
@@ -45,8 +45,8 @@ for value in "$RIN" "$CIN" "$COUT"; do
   }
 done
 
-[[ "$IN_BITS" == 8 || "$IN_BITS" == 16 ]] || {
-  echo 'IN_BITS must be 8 or 16.' >&2
+[[ "$IN_BITS" == 8 || "$IN_BITS" == 16 || "$IN_BITS" == 32 ]] || {
+  echo 'IN_BITS must be 8, 16, or 32.' >&2
   exit 2
 }
 
@@ -98,16 +98,17 @@ Mem_row_factor=$(extract_number table_capacity_factor)
 extract_bool() {
   sed -nE "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*(true|false).*/\1/p" "$SCALA_CFG" | head -n1
 }
-FP16_FLAG=$(extract_bool FP16_ACTIVATIONS)
+FP_FLAG=$(extract_bool FP_ACTIVATIONS)
+FP_BITS=$(extract_number FP_BITS)
 ALIGNED_FLAG=$(extract_bool GROUP_SCALE_ALIGNED)
 DEFERRED_FLAG=$(extract_bool GROUP_SCALE_DEFERRED)
 
-[[ "$FP16_FLAG" == true || "$FP16_FLAG" == false ]] || {
-  echo 'Cannot read FP16_ACTIVATIONS from Config.scala.' >&2
+[[ "$FP_FLAG" == true || "$FP_FLAG" == false ]] || {
+  echo 'Cannot read FP_ACTIVATIONS from Config.scala.' >&2
   exit 2
 }
-FP16_MODE=0
-[[ "$FP16_FLAG" != true ]] || FP16_MODE=1
+FP_MODE=0
+[[ "$FP_FLAG" != true ]] || FP_MODE=1
 
 GROUP_SCALE_MODE=0
 if [[ "$ALIGNED_FLAG" == true ]]; then GROUP_SCALE_MODE=1; fi
@@ -119,18 +120,24 @@ if [[ "$DEFERRED_FLAG" == true ]]; then
   GROUP_SCALE_MODE=2
 fi
 
+if [[ "$IN_BITS" == 32 && "$FP_MODE" != 1 ]]; then
+  echo 'IN_BITS=32 requires FP_ACTIVATIONS=true.' >&2; exit 2
+fi
+if (( FP_MODE )) && [[ "$FP_BITS" == 32 && "$FAST_VECTORS" != 1 ]]; then
+  echo 'FP32 tests require FAST_VECTORS=1 for the exact Python reference.' >&2; exit 2
+fi
 GROUP_SIZE=${GROUP_SIZE:-64}
 [[ "$GROUP_SIZE" == 32 || "$GROUP_SIZE" == 64 || "$GROUP_SIZE" == 128 ]] || {
   echo 'GROUP_SIZE must be 32, 64, or 128.' >&2
   exit 2
 }
 
-if (( FP16_MODE )) && [[ "$IN_BITS" != 16 ]]; then
-  echo 'FP16_ACTIVATIONS=true requires IN_BITS=16.' >&2
+if (( FP_MODE )) && [[ "$IN_BITS" != "$FP_BITS" ]]; then
+  echo 'FP_ACTIVATIONS=true requires IN_BITS=FP_BITS.' >&2
   exit 2
 fi
-if (( GROUP_SCALE_MODE )) && { [[ "$FP16_MODE" != 1 ]] || [[ "$W_BITS" != 2 && "$W_BITS" != 4 ]]; }; then
-  echo 'Group scaling requires FP16_ACTIVATIONS=true and W_BITS=2 or 4.' >&2
+if (( GROUP_SCALE_MODE )) && { [[ "$FP_MODE" != 1 ]] || [[ "$W_BITS" != 2 && "$W_BITS" != 4 && "$W_BITS" != 8 ]]; }; then
+  echo 'Group scaling requires FP_ACTIVATIONS=true and W_BITS=2, 4 or 8.' >&2
   exit 2
 fi
 if (( GROUP_SCALE_MODE )) && [[ "$FAST_VECTORS" != 1 ]]; then
@@ -220,7 +227,7 @@ if [[ "$FAST_VECTORS" == 1 ]]; then
     "$RIN" "$CIN" "$COUT" "$IN_BITS" "$W_BITS" \
     --seed "${TEST_SEED:-1}" \
     --pattern "${TEST_PATTERN:-0}" \
-    --fp16-activations "$FP16_MODE" \
+    --fp-activations "$FP_MODE" \
     --group-scale-mode "$GROUP_SCALE_MODE" \
     --group-size "$GROUP_SIZE" \
     --output "$SCRIPT_DIR/lumixed_test_vectors.h"
@@ -228,7 +235,7 @@ if [[ "$FAST_VECTORS" == 1 ]]; then
   VECTOR_FLAGS="-DLUMIXED_PREGENERATED_TEST=1"
 fi
 
-TEST_CFLAGS="${TEST_CFLAGS:--O2} $VECTOR_FLAGS -DLUMIXED_FP16_ACTIVATIONS=$FP16_MODE -DLUMIXED_GROUP_SCALE_MODE=$GROUP_SCALE_MODE -DLUMIXED_QUIET_TEST=${QUIET_TEST:-1} -DLUMIXED_TEST_SEED=${TEST_SEED:-1} -DLUMIXED_TEST_PATTERN=${TEST_PATTERN:-0}" \
+TEST_CFLAGS="${TEST_CFLAGS:--O2} $VECTOR_FLAGS -DLUMIXED_FP_ACTIVATIONS=$FP_MODE -DLUMIXED_FP_BITS=$FP_BITS -DLUMIXED_GROUP_SCALE_MODE=$GROUP_SCALE_MODE -DLUMIXED_QUIET_TEST=${QUIET_TEST:-1} -DLUMIXED_TEST_SEED=${TEST_SEED:-1} -DLUMIXED_TEST_PATTERN=${TEST_PATTERN:-0}" \
   bash ./build.sh baremetal
 
 # -----------------------------------------------------------------------------
@@ -240,10 +247,10 @@ LOG_BASE=$(realpath "$LOG_BASE")
 
 if [[ "${LUMIXED_LOG_FLAT:-0}" == 1 ]]; then
   SUB_LOG_DIR="$LOG_BASE"
-  LOG_FILE="$SUB_LOG_DIR/X${RIN}x${CIN}_W${CIN}x${COUT}_A${IN_BITS}_W${W_BITS}_FP16${FP16_MODE}_GS${GROUP_SCALE_MODE}_G${GROUP_SIZE}.log"
+  LOG_FILE="$SUB_LOG_DIR/X${RIN}x${CIN}_W${CIN}x${COUT}_A${IN_BITS}_W${W_BITS}_FP${FP_MODE}_GS${GROUP_SCALE_MODE}_G${GROUP_SIZE}.log"
 else
   SUB_LOG_DIR="$LOG_BASE/XS=${XS}_YS=${YS}_Mem_row_factor=${Mem_row_factor}"
-  LOG_FILE="$SUB_LOG_DIR/RIN=${RIN}_CIN=${CIN}_COUT=${COUT}_INBITS=${IN_BITS}_WBITS=${W_BITS}_FP16=${FP16_MODE}_GROUPMODE=${GROUP_SCALE_MODE}_G=${GROUP_SIZE}.txt"
+  LOG_FILE="$SUB_LOG_DIR/RIN=${RIN}_CIN=${CIN}_COUT=${COUT}_INBITS=${IN_BITS}_WBITS=${W_BITS}_FP16=${FP_MODE}_GROUPMODE=${GROUP_SCALE_MODE}_G=${GROUP_SIZE}.txt"
 fi
 
 mkdir -p "$SUB_LOG_DIR"
@@ -254,8 +261,8 @@ mkdir -p "$SUB_LOG_DIR"
   printf 'TEST_SEED=%s QUIET_TEST=%s TEST_PATTERN=%s\n' \
     "${TEST_SEED:-1}" "${QUIET_TEST:-1}" "${TEST_PATTERN:-0}"
   printf 'FAST_VECTORS=%s\n' "$FAST_VECTORS"
-  printf 'FP16_ACTIVATIONS=%s GROUP_SCALE_MODE=%s GROUP_SIZE=%s\n' \
-    "$FP16_MODE" "$GROUP_SCALE_MODE" "$GROUP_SIZE"
+  printf 'FP_ACTIVATIONS=%s GROUP_SCALE_MODE=%s GROUP_SIZE=%s\n' \
+    "$FP_MODE" "$GROUP_SCALE_MODE" "$GROUP_SIZE"
 
   if [[ "$FAST_VECTORS" == 0 ]]; then
     printf 'REFERENCE=RISCV_C\n'

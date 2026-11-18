@@ -4,7 +4,7 @@ case class LUMIXEDParams(
   Rin:                         Int,
   Cin:                         Int,
   Cout:                        Int,
-  XBitWidth:                   Int,
+  INT_BITS:                    Int,
   WBitWidth:                   Int,
   OutBitWidth:                 Int,
   minInputBits:                Int,
@@ -18,7 +18,8 @@ case class LUMIXEDParams(
   DEBUG:                       Boolean,
   W_BUFFS:                     Int,
   table_capacity_factor:       Int,
-  FP16_ACTIVATIONS:            Boolean = false,
+  FP_ACTIVATIONS:              Boolean = false,
+  FP_BITS:                      Int = 16,
   BRAM_OUTPUTS:                Boolean = false,
   EARLY_WEIGHT_BUFFER_RELEASE: Boolean = false,
   WEIGHT_DMA_BURSTS:            Boolean = false,
@@ -30,6 +31,10 @@ case class LUMIXEDParams(
 ) {
   // Derived width: configure the beat size in bytes only.
   val DMA_bits: Int = DMA_Bytes * 8
+  require(Set(16, 32).contains(FP_BITS), "FP_BITS must be 16 or 32")
+  val XBitWidth: Int = if (FP_ACTIVATIONS) FP_BITS else INT_BITS
+  require(FP_ACTIVATIONS || Set(8, 16).contains(XBitWidth), "Integer activation lanes must be 8 or 16 bits")
+  val fpFractionalBits: Int = if (FP_BITS == 16) 24 else 149
 }
 
 // Build-time settings: rebuild the RTL after changing any value below.
@@ -38,14 +43,15 @@ object LUMIXED_Config {
 
     // 1. Matrix capacities: X[R, K] * W[K, N] -> O[R, N].
     // Runtime dimensions must fit these limits. Rin must be >= parallel_rows.
-    Rin  = 1,    // Maximum R: activation rows.
-    Cin  = 1024, // Maximum K: inner dimension; also sizes FP16 accumulators.
-    Cout = 1024, // Maximum N: output columns; determines output storage depth.
+    Rin  = 32,    // Maximum R: activation rows.
+    Cin  = 256, // Maximum K: inner dimension; also sizes exact accumulators.
+    Cout = 32, // Maximum N: output columns; determines output storage depth.
 
     // 2. Activation format and supported element widths.
-    // false: signed integer activations. true: FP16 activations / FP32 outputs.
-    FP16_ACTIVATIONS = false,
-    XBitWidth       = 16, // Activation storage lane width.
+    // false: signed integer activations. true: FP16/FP32 activations / FP32 outputs.
+    FP_ACTIVATIONS = true,
+    FP_BITS        = 32, // Build-time activation precision: 16 or 32.
+    INT_BITS        = 16, // Integer lane width; ignored when FP_ACTIVATIONS=true.
     OutBitWidth     = 32, // Output storage word width.
     WBitWidth       = 8,  // Maximum signed weight width.
     minInputBits    = 8,  // Minimum integer input width used to size packed lanes.
@@ -53,8 +59,8 @@ object LUMIXED_Config {
 
     // 3. Compute parallelism and product-table capacity.
     parallel_rows         = 1, // YS: activation rows processed together.
-    banks_per_row         = 2, // B: parallel banks per activation row.
-    table_capacity_factor = 8, // RF: base product-table capacity factor.
+    banks_per_row         = 4, // B: parallel banks per activation row.
+    table_capacity_factor = 4, // RF: base product-table capacity factor.
 
     // 4. DMA and weight prefetch storage.
     Dma_Ids   = 2, // Shared request slots; held until ordered response delivery.
@@ -82,9 +88,9 @@ object LUMIXED_Config {
     // each matmul. B becomes total lanes / selected YS. Dense FP16 only.
     FLEXIBLE_BANK_GROUPING = false,
 
-    // Mutually exclusive finite-FP16 group-scaling implementations.
+    // Mutually exclusive finite-FP activation / FP16-scale group-scaling implementations.
     GROUP_SCALE_ALIGNED = false, // Clamp windows to quantization boundaries.
-    GROUP_SCALE_DEFERRED = false, // Full windows; scale bank fragments. SW selects G=32/64/128 before each matmul (no rebuild); G stays fixed during the matmul.
+    GROUP_SCALE_DEFERRED = true, // Full windows; scale bank fragments. SW selects G=32/64/128 before each matmul (no rebuild); G stays fixed during the matmul.
 
     // 7. Instrumentation.
     DEBUG = true, // Enable hardware performance counters.

@@ -3,7 +3,8 @@ package LUMIXED_PACKAGE
 import chisel3._
 import chisel3.util._
 
-/** Finite exact fixed24 bank fragments -> exact fixed48 row vectors.
+/** Finite exact bank fragments -> exact FP16-scaled row vectors.
+  * Activation fractional bits: 24/149; scaled fractional bits: 48/173.
   * Each bank owns a running partial and an eight-entry fragment FIFO. Credits
   * reserve space for all four already-issued selection tokens. A row-vector
   * scaler shares one synchronous scale lookup across parallel activation rows.

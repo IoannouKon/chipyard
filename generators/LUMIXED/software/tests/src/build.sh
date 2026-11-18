@@ -22,24 +22,32 @@ MODE="$1"
 read -r -a TEST_FLAGS <<< "${TEST_CFLAGS:--O2}"
 
 # Match the software datatype to the elaboration-time hardware format. A copied
-# test harness can select explicitly with -DLUMIXED_FP16_ACTIVATIONS=0 or 1.
+# test harness can select explicitly with -DLUMIXED_FP_ACTIVATIONS=0 or 1.
 CONFIG_SOURCE="${LUMIXED_CONFIG_PATH:-$SCRIPT_DIR/../../../src/main/scala/Config.scala}"
 if [ -f "$CONFIG_SOURCE" ]; then
-  fp16_mode=$(sed -n 's/^[[:space:]]*FP16_ACTIVATIONS[[:space:]]*=[[:space:]]*\(true\|false\).*/\1/p' "$CONFIG_SOURCE")
-  case "$fp16_mode" in
-    true) fp16_define=1 ;;
-    false) fp16_define=0 ;;
-    *) echo "Missing or ambiguous FP16_ACTIVATIONS in $CONFIG_SOURCE" >&2; exit 1 ;;
+  fp_mode=$(sed -n 's/^[[:space:]]*FP_ACTIVATIONS[[:space:]]*=[[:space:]]*\(true\|false\).*/\1/p' "$CONFIG_SOURCE")
+  case "$fp_mode" in
+    true) fp_define=1 ;;
+    false) fp_define=0 ;;
+    *) echo "Missing or ambiguous FP_ACTIVATIONS in $CONFIG_SOURCE" >&2; exit 1 ;;
   esac
   for flag in "${TEST_FLAGS[@]}"; do
     case "$flag" in
-      -DLUMIXED_FP16_ACTIVATIONS=*)
-        if [ "$flag" != "-DLUMIXED_FP16_ACTIVATIONS=$fp16_define" ]; then
-          echo "Software FP16_ACTIVATIONS disagrees with Config.scala" >&2; exit 1
+      -DLUMIXED_FP_ACTIVATIONS=*)
+        if [ "$flag" != "-DLUMIXED_FP_ACTIVATIONS=$fp_define" ]; then
+          echo "Software FP_ACTIVATIONS disagrees with Config.scala" >&2; exit 1
         fi ;;
     esac
   done
-  TEST_FLAGS+=("-DLUMIXED_FP16_ACTIVATIONS=$fp16_define")
+  TEST_FLAGS+=("-DLUMIXED_FP_ACTIVATIONS=$fp_define")
+  fp_bits=$(sed -nE 's/^[[:space:]]*FP_BITS[[:space:]]*=[[:space:]]*(16|32).*/\1/p' "$CONFIG_SOURCE")
+  case "$fp_bits" in 16|32) ;; *) echo "Invalid FP_BITS in $CONFIG_SOURCE" >&2; exit 1 ;; esac
+  for flag in "${TEST_FLAGS[@]}"; do
+    case "$flag" in -DLUMIXED_FP_BITS=*)
+      if [ "$flag" != "-DLUMIXED_FP_BITS=$fp_bits" ]; then echo "Software FP_BITS disagrees with Config.scala" >&2; exit 1; fi ;;
+    esac
+  done
+  TEST_FLAGS+=("-DLUMIXED_FP_BITS=$fp_bits")
   grouping_mode=$(sed -n 's/^[[:space:]]*FLEXIBLE_BANK_GROUPING[[:space:]]*=[[:space:]]*\(true\|false\).*/\1/p' "$CONFIG_SOURCE")
   grouping_define=0
   if [ "$grouping_mode" = true ]; then grouping_define=1; fi

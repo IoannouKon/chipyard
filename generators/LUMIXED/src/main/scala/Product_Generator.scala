@@ -13,7 +13,8 @@ class Product_Generator(
     val DMA_bits:Int,
     val product_bitwidth:Int,
     val minInputBits:Int,
-    val FP16_ACTIVATIONS: Boolean = false,
+    val FP_ACTIVATIONS: Boolean = false,
+    val FP_BITS: Int = 16,
     val banksPerRow: Int = 0,
     val flexibleGrouping: Boolean = false
 ) extends Module {
@@ -34,7 +35,7 @@ class Product_Generator(
     val input_bits              = Input(UInt(6.W))
     // Validity is a count, not a bitmap; use its count width.
     val valid_inputs = Input(UInt(log2Ceil(totalSyncMems * RowsPerBlock + 1).W))
-    val mask_p                  = Input(UInt(log2Ceil((1 << (WBitWidth + XBitWidth))).W))
+    val mask_p                  = Input(UInt((WBitWidth + XBitWidth).W))
     val shiftAmt                = Input(UInt(7.W))
     val chunks_per_Product_bits = Input(UInt(log2Ceil(WBitWidth + XBitWidth + 1).W))
     val Product_in              = Input(UInt(product_bitwidth.W))
@@ -87,10 +88,10 @@ class Product_Generator(
           // even at the maximum representable count plus a dirty-cell offset.
           val validEnd = io.valid_inputs +& io.dirty_elems_x
           val valid_x = validEnd > elem_start + i.U
-          val absVal = if (FP16_ACTIVATIONS) {
+          val absVal = if (FP_ACTIVATIONS) {
             // One FP16 per 16-bit lane. The table contains exact integer significands.
-            if (i == 0) Mux(valid_x, FP16Activation.significand(data), 0.U(11.W))
-            else 0.U(11.W)
+            if (i == 0) Mux(valid_x, FPActivation.significand(data, FP_BITS), 0.U((FPActivation.fractionBits(FP_BITS) + 1).W))
+            else 0.U((FPActivation.fractionBits(FP_BITS) + 1).W)
           } else {
             Mux(valid_x ,absVal_new.asUInt,0.U)
           }

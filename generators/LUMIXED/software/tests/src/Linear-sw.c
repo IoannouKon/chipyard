@@ -12,19 +12,19 @@
 // ============================================================================
 // 1. TEST PARAMETERS: element precision and matrix dimensions
 // ============================================================================
-#define IN_BITS            16  // Activation bit width.
-#define W_BITS              4  // Signed weight bit width.
-#define RIN_MAX             1  // Maximum input rows (R).
-#define CIN_MAX            64  // Maximum reduction dimension (K).
-#define COUT_MAX           64  // Maximum output columns (N).
+#define IN_BITS 32
+#define W_BITS 2
+#define RIN_MAX 2
+#define CIN_MAX 256
+#define COUT_MAX 4
 #define FILTERS_MAX         1  // Number of filters.
 
 // ============================================================================
 // 2. HARDWARE GEOMETRY: must match Config.scala
 // ============================================================================
-#define XS                  2  // Banks per activation row.
-#define YS                  1  // Parallel activation rows.
-#define Mem_row_factor      8  // Product-table capacity factor.
+#define XS 4
+#define YS 1
+#define Mem_row_factor 4
 
 // ============================================================================
 // 3. EXECUTION, OUTPUT AND DIAGNOSTIC OPTIONS
@@ -34,9 +34,12 @@
 #define FPU                 0  // Whether the Rocket core supports an FPU.
 #define SCALE               0  // Legacy uniform integer-output scaling.
 
-// Build script controls FP16 hardware mode; this is not a runtime selector.
-#ifndef LUMIXED_FP16_ACTIVATIONS
-#define LUMIXED_FP16_ACTIVATIONS 0
+// Build-time activation mode; raw IEEE bits transfer without CPU conversion.
+#ifndef LUMIXED_FP_ACTIVATIONS
+#define LUMIXED_FP_ACTIVATIONS 0
+#endif
+#ifndef LUMIXED_FP_BITS
+#define LUMIXED_FP_BITS 16
 #endif
 
 // Allow runtime bank regrouping when implemented by the hardware.
@@ -63,7 +66,7 @@
 #define INPUT_SIZE (RIN_MAX * CIN_MAX)
 #define WEIGHT_SIZE (FILTERS_MAX * CIN_MAX * COUT_MAX)
 
-#if IN_BITS == 16 || IN_BITS == 8
+#if IN_BITS == 32 || IN_BITS == 16 || IN_BITS == 8
     #define MAX_INPUT_SIZE (RIN_MAX * CIN_MAX)
 #elif IN_BITS == 4
     #define MAX_INPUT_SIZE ((RIN_MAX * CIN_MAX) / 2)
@@ -71,7 +74,7 @@
     #define MAX_INPUT_SIZE ((RIN_MAX * CIN_MAX) / 4)
 #endif
 
-#if LUMIXED_FP16_ACTIVATIONS
+#if LUMIXED_FP_ACTIVATIONS
     #define MAX_WEIGHT_SIZE ((CIN_MAX * COUT_MAX * W_BITS + 7) / 8)
 #elif W_BITS == 8
     #define MAX_WEIGHT_SIZE (CIN_MAX * COUT_MAX)
@@ -84,13 +87,16 @@
 // ============================================================================
 // 5. COMPILE-TIME FORMAT CHECKS
 // ============================================================================
-#if LUMIXED_FP16_ACTIVATIONS && (IN_BITS != 16 || (W_BITS != 8 && W_BITS != 4 && W_BITS != 2))
-#error "FP16 activations require IN_BITS=16 and integer W_BITS=8, 4 or 2"
+#if LUMIXED_FP_ACTIVATIONS && (IN_BITS != LUMIXED_FP_BITS || (W_BITS != 8 && W_BITS != 4 && W_BITS != 2))
+#error "FP activations require IN_BITS=FP_BITS and integer W_BITS=8, 4 or 2"
 #endif
-#if LUMIXED_FP16_ACTIVATIONS && SCALE
+#if LUMIXED_FP_ACTIVATIONS && IN_BITS == 32 && !defined(LUMIXED_PREGENERATED_TEST)
+#error "FP32 exact-reference tests require FAST_VECTORS=1 (Python arbitrary-precision reference)"
+#endif
+#if LUMIXED_FP_ACTIVATIONS && SCALE
 #error "FP16 mode already returns FP32; the integer SCALE path must be disabled"
 #endif
-#if LUMIXED_GROUP_SCALE_MODE && !LUMIXED_FP16_ACTIVATIONS
+#if LUMIXED_GROUP_SCALE_MODE && !LUMIXED_FP_ACTIVATIONS
 #error "Group scaling requires FP16 activations"
 #endif
 #if LUMIXED_GROUP_SCALE_MODE && !defined(LUMIXED_PREGENERATED_TEST)
@@ -149,7 +155,7 @@ static inline int lumixed_set_group_scales(const uint16_t *scales, unsigned grou
     return 0;
 }
 
-int ACTIVATION_MAX_BITS = 16;
+int ACTIVATION_MAX_BITS = LUMIXED_FP_ACTIVATIONS ? LUMIXED_FP_BITS : 16;
 int WEIGHTS_MAX_BITS    = 8;
 int RF = Mem_row_factor; 
 
@@ -163,7 +169,11 @@ int Cout_max = COUT_MAX;
 
 ////////////////////////////////////////////////////////////////////////////
 
-#if LUMIXED_FP16_ACTIVATIONS
+#if LUMIXED_FP_ACTIVATIONS && LUMIXED_FP_BITS == 32
+    typedef uint32_t input_t; // Raw IEEE binary32 activation bits.
+    static const int max_in = 0;
+    static const int min_in = 0;
+#elif LUMIXED_FP_ACTIVATIONS
     typedef uint16_t input_t; // Raw IEEE binary16 bits, never cast to int16_t.
     static const int max_in = 65535;
     static const int min_in = 0;
@@ -199,7 +209,7 @@ int Cout_max = COUT_MAX;
     static const int min_w = -2; 
 #endif    
 
-#if LUMIXED_FP16_ACTIVATIONS
+#if LUMIXED_FP_ACTIVATIONS
     typedef uint32_t output_t; // Raw IEEE binary32 bits; works without a CPU FPU.
 #elif SCALE == 1
     typedef float output_t; 
@@ -207,7 +217,7 @@ int Cout_max = COUT_MAX;
     typedef int32_t output_t;  
 #endif    
 
-#if LUMIXED_FP16_ACTIVATIONS
+#if LUMIXED_FP_ACTIVATIONS && LUMIXED_FP_BITS == 16
 // Exact sum in units of 2^-24, rounded once to binary32, nearest/ties-to-even.
 // Cin <= 65536 and signed W8/W4/W2 fit this signed 64-bit software reference.
 static uint32_t lumixed_fixed24_to_fp32(int64_t value) {
@@ -393,7 +403,7 @@ static inline long rdcycle(void)
 
 void printMatrices_in(LUMIXEDParams p, input_t *inputMatrix) {
     // Printing Input Matrix
-    #if IN_BITS == 16 || IN_BITS == 8  
+    #if IN_BITS == 32 || IN_BITS == 16 || IN_BITS == 8
         printf("Input Matrix (%d x %d):\n", p.Rin, p.Cin);
         for (int i = 0; i < p.Rin; i++) {
             for (int j = 0; j < p.Cin; j++) {
@@ -495,7 +505,7 @@ void printMatrices_out(LUMIXEDParams p, output_t *outputMatrix_SW, output_t *out
         for (int r = 0; r < p.Rin; r++) {
             for (int c = 0; c < p.Cout; c++) {
                 int index = f * p.Rin * p.Cout + r * p.Cout + c; 
-                #if LUMIXED_FP16_ACTIVATIONS
+                #if LUMIXED_FP_ACTIVATIONS
                     printf("0x%08x ", outputMatrix_SW[index]);
                 #elif SCALE == 1
                     printf("%.6f ", outputMatrix_SW[index]);
@@ -515,7 +525,7 @@ void printMatrices_out(LUMIXEDParams p, output_t *outputMatrix_SW, output_t *out
         for (int r = 0; r < p.Rin; r++) {
             for (int c = 0; c < p.Cout; c++) {
                 int index = f * p.Rin * p.Cout + r * p.Cout + c;
-                #if LUMIXED_FP16_ACTIVATIONS
+                #if LUMIXED_FP_ACTIVATIONS
                     printf("0x%08x ", outputMatrix_HW[index]);
                 #elif SCALE == 1
                     printf("%.6f ", outputMatrix_HW[index]);
@@ -534,7 +544,14 @@ void generate_random_matrix_in(input_t *matrix, int size) {
     // Seed the random number generator to get different values on each run
     srand(LUMIXED_TEST_SEED); 
     
-    #if LUMIXED_FP16_ACTIVATIONS
+    #if LUMIXED_FP_ACTIVATIONS && LUMIXED_FP_BITS == 32
+        for (int i = 0; i < size; ++i) {
+            uint32_t bits = (uint32_t)rand();
+            bits |= ((uint32_t)rand() & 1u) << 31;
+            if ((bits & 0x7f800000u) == 0x7f800000u) bits ^= 0x00800000u;
+            matrix[i] = LUMIXED_TEST_PATTERN == 1 ? 0xff7fffffu : bits;
+        }
+    #elif LUMIXED_FP_ACTIVATIONS
         for (int i = 0; i < size; ++i) {
             uint16_t bits = (uint16_t)rand();
             if ((bits & 0x7c00u) == 0x7c00u) bits ^= 0x0400u; // Random finite FP16.
@@ -653,7 +670,7 @@ int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW,
                 }
                 
                 if (mismatch_count++ < 8) {
-                    #if LUMIXED_FP16_ACTIVATIONS
+                    #if LUMIXED_FP_ACTIVATIONS
                     printf("Mismatch [%d,%d]: HW=0x%08x SW=0x%08x (FP32 bits)\n", r, c, hw, sw);
                     #elif SCALE == 1
                     printf("Mismatch [%d,%d]: HW=%.9g SW=%.9g\n", r, c, (double)hw, (double)sw);
@@ -887,6 +904,8 @@ void transpose_weightMatrix(weight_t *c, int Cin, int Cout) {
 }
 
 
+#if !(LUMIXED_FP_ACTIVATIONS && LUMIXED_FP_BITS == 32)
+// FP32 tests use the independent Python reference.
 void SW_Mat_Mul(
     int num_filters,      // Number of filters (f)
     int Rin,              // Rows in input matrix (i)
@@ -894,13 +913,13 @@ void SW_Mat_Mul(
     int Cin,              // Channels in input matrix (k)
     input_t *inputMatrix, // Input matrix
     weight_t *weightMatrix, // Transposed weight matrix
-    #if LUMIXED_FP16_ACTIVATIONS
+    #if LUMIXED_FP_ACTIVATIONS
     output_t *outputMatrix_SW // Raw FP32 output bits
     #else
     int32_t *outputMatrix_SW // Original integer output matrix
     #endif
 ) {
-#if LUMIXED_FP16_ACTIVATIONS
+#if LUMIXED_FP_ACTIVATIONS
     for (int f = 0; f < num_filters; ++f)
         for (int i = 0; i < Rin; ++i)
             for (int j = 0; j < Cout; ++j)
@@ -935,7 +954,7 @@ void matmul_sw_uniform(
     int d,                        // output vector length
     int m                         // number of input vectors
 ) {
-#if LUMIXED_FP16_ACTIVATIONS
+#if LUMIXED_FP_ACTIVATIONS
     for (int row = 0; row < m; ++row)
         for (int column = 0; column < d; ++column)
             xout[row * d + column] = lumixed_fp16_dot(x->q + row * n, w->q, n, column);
@@ -955,7 +974,7 @@ void matmul_sw_uniform(
                 // ----------------------------
                 // UNPACK input x->q for vec_i-th vector and j-th element
                 // ----------------------------
-                #if IN_BITS == 16 || IN_BITS == 8
+                #if IN_BITS == 32 || IN_BITS == 16 || IN_BITS == 8
                     // Assuming x->q is stored row-major: input vectors are contiguous
                     x_val = x->q[vec_i * n + j];
                 #elif IN_BITS == 4
@@ -1012,6 +1031,8 @@ void matmul_sw_uniform(
 #endif
 }
 
+
+#endif // C reference for integer and FP16 modes
 
 unsigned long int_hw_cycles,float_hw_cycles,start,end;
 

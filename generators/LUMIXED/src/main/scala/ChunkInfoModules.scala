@@ -84,7 +84,8 @@ object ChunkUtils {
     // Power-of-two element counts use shifts and masks.
     val shiftAmt = Mux(elemsPerChunk_in === 32.U, 5.U,
                Mux(elemsPerChunk_in === 16.U, 4.U,
-               Mux(elemsPerChunk_in ===  8.U, 3.U, 2.U)))
+               Mux(elemsPerChunk_in ===  8.U, 3.U,
+               Mux(elemsPerChunk_in === 4.U, 2.U, 1.U))))
     val maskVal  = (1.U << shiftAmt) - 1.U
     val chunkIndex      = linear_index >> shiftAmt
     val offset_in_chunk = linear_index & maskVal
@@ -129,12 +130,12 @@ object ChunkUtils {
     val total_bits = Mux(input_bits === 2.U, elements_to_read_temp << 1,
                 Mux(input_bits === 4.U, elements_to_read_temp << 2,
                   Mux(input_bits === 8.U, elements_to_read_temp << 3,
-                    elements_to_read_temp << 4  // input_bits == 16.U
+                    Mux(input_bits === 16.U, elements_to_read_temp << 4, elements_to_read_temp << 5)
                   )
                 )
               )
 
-    val shift_amt = Mux(XBitWidth === 16.U, 4.U, 3.U) // 16 → shift by 4, 8 → shift by 3
+    val shift_amt = Mux(XBitWidth === 32.U, 5.U, Mux(XBitWidth === 16.U, 4.U, 3.U)) // 16 → shift by 4, 8 → shift by 3
     val bytes_to_read = total_bits >> shift_amt
 
     val register_index = Mux(x_elems_per_reg === 1.U, linear_index_temp,

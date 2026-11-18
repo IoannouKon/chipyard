@@ -48,9 +48,9 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val params: LUMIXEDParams = outer.params
   require(params.parallel_rows >= 1 && params.Rin >= params.parallel_rows,
     "Rin row capacity must be at least parallel_rows")
-  if (params.FP16_ACTIVATIONS) {
-    require(params.XBitWidth == 16 && params.OutBitWidth == 32 && !params.SCALE,
-      "FP16 activations require XBitWidth=16, OutBitWidth=32 and SCALE=false")
+  if (params.FP_ACTIVATIONS) {
+    require(params.XBitWidth == params.FP_BITS && params.OutBitWidth == 32 && !params.SCALE,
+      "FP activations require XBitWidth=FP_BITS, OutBitWidth=32 and SCALE=false")
     require(params.Cin >= 1 && params.Cin <= 65536 && params.WBitWidth == 8,
       "FP16 supports Cin<=65536 and signed W8/W4/W2")
   }
@@ -59,15 +59,17 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   require(!(params.GROUP_SCALE_ALIGNED && params.GROUP_SCALE_DEFERRED), "Choose one group-scaling mode")
   if (groupScaling) {
     require(params.DMA_Bytes == 8, "Initial group scaling requires 8-byte DMA beats")
-    require(params.FP16_ACTIVATIONS && params.BRAM_OUTPUTS && !params.FLEXIBLE_BANK_GROUPING &&
+    require(params.FP_ACTIVATIONS && params.BRAM_OUTPUTS && !params.FLEXIBLE_BANK_GROUPING &&
       !params.SKIP_ZERO_WEIGHTS && !params.WEIGHT_DMA_BURSTS && !params.EARLY_WEIGHT_BUFFER_RELEASE,
       "Initial group scaling supports dense fixed-bank FP16 with SRAM outputs")
   }
-  val partialWidth = 48 + log2Ceil(params.Cin)
-  val accumulatorWidth = if (groupScaling) 88 + log2Ceil(params.Cin)
-    else if (params.FP16_ACTIVATIONS) partialWidth else params.OutBitWidth
+  val partialWidth = (if (params.FP_BITS == 16) 48 else 285) + log2Ceil(params.Cin)
+  val accumulatorWidth = if (groupScaling) (if (params.FP_BITS == 16) 88 else 325) + log2Ceil(params.Cin)
+    else if (params.FP_ACTIVATIONS) partialWidth else params.OutBitWidth
   val dma = outer.dma.module
-  val fp16Geometry = params.FP16_ACTIVATIONS
+  val fpGeometry = params.FP_ACTIVATIONS
+  val activationCells = params.DMA_bits / params.XBitWidth
+  val activationDepth = (((1 << (params.WBitWidth - params.minWeightBits)) * params.table_capacity_factor) + activationCells - 1) / activationCells
   require(!params.BRAM_OUTPUTS || (!params.SCALE && params.OutBitWidth == 32),
     "BRAM outputs support unscaled INT32 or FP32 output words")
 
@@ -100,7 +102,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val groupingRows = if (params.FLEXIBLE_BANK_GROUPING)
     (0 to log2Ceil(params.parallel_rows)).map(1 << _) else Seq(params.parallel_rows)
   if (params.FLEXIBLE_BANK_GROUPING) {
-    require(params.FP16_ACTIVATIONS && params.BRAM_OUTPUTS,
+    require(params.FP_ACTIVATIONS && params.BRAM_OUTPUTS,
       "Flexible grouping initially supports FP16 with SRAM outputs")
     require(params.banks_per_row > 0 && isPow2(params.parallel_rows),
       "Flexible grouping requires positive B and power-of-two maximum YS")
@@ -141,7 +143,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val selectionLast = WireDefault(false.B)
   val zeroSkipMode = WireDefault(false.B)
   val zeroSkipFirst = WireDefault(false.B)
-  val zeroSkipSpecial = if (params.SKIP_ZERO_WEIGHTS && params.FP16_ACTIVATIONS)
+  val zeroSkipSpecial = if (params.SKIP_ZERO_WEIGHTS && params.FP_ACTIVATIONS)
     Some(RegInit(false.B)) else None
   val selectionValid = RegInit(VecInit(Seq.fill(4)(false.B)))
   val selectionColumn = Reg(Vec(4, UInt(log2Ceil(params.Cout + 1).W)))
@@ -169,9 +171,9 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
 
   // === Output accumulators and activation/weight memories ===
   val O_reg     = if (params.BRAM_OUTPUTS) None else Some(RegInit(VecInit(Seq.fill(params.num_filters)(VecInit(Seq.fill(params.parallel_rows)(VecInit(Seq.fill(params.Cout)(0.S(accumulatorWidth.W)))))))))  // Register for Output results
-  val fp16Meta = if (params.FP16_ACTIVATIONS) Some(Reg(Vec(totalSyncMems, new FP16ProductMeta))) else None
-  val fp16Flags = if (params.FP16_ACTIVATIONS && !params.BRAM_OUTPUTS) Some(RegInit(VecInit(Seq.fill(params.parallel_rows)(VecInit(Seq.fill(params.Cout)(0.U(3.W))))))) else None
-  val I_MEM = Seq.fill(totalSyncMems)(SyncReadMem(regs_per_mem/4, UInt(params.DMA_bits.W)))
+  val fpMeta = if (params.FP_ACTIVATIONS) Some(Reg(Vec(totalSyncMems, new FPProductMeta(params.FP_BITS)))) else None
+  val fpFlags = if (params.FP_ACTIVATIONS && !params.BRAM_OUTPUTS) Some(RegInit(VecInit(Seq.fill(params.parallel_rows)(VecInit(Seq.fill(params.Cout)(0.U(3.W))))))) else None
+  val I_MEM = Seq.fill(totalSyncMems)(SyncReadMem(activationDepth, UInt(params.DMA_bits.W)))
   val W_MEM = Seq.fill(buffers, weightBanks) { SyncReadMem(regs_per_mem_w/8, UInt(params.DMA_bits.W))}
   val weightReadAddress = if (params.SKIP_ZERO_WEIGHTS) {
     Some(WireDefault(VecInit(Seq.fill(buffers) {
@@ -188,12 +190,12 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   })) else None
 
   // Optional shared activation read port. State-local helpers select its request.
-  val activationReadAddress = WireDefault(0.U(math.max(1, log2Ceil(regs_per_mem / 4)).W))
+  val activationReadAddress = WireDefault(0.U(math.max(1, log2Ceil(activationDepth)).W))
   val activationReadEnable = WireDefault(false.B)
   // Zero skipping changes read addresses, not port counts: generation/dense
   // replay share the same physical port with each bank's independent replay.
   val sparseActivationAddress = if (params.SKIP_ZERO_WEIGHTS)
-    Some(WireDefault(VecInit(Seq.fill(totalSyncMems)(0.U(math.max(1, log2Ceil(regs_per_mem / 4)).W))))) else None
+    Some(WireDefault(VecInit(Seq.fill(totalSyncMems)(0.U(math.max(1, log2Ceil(activationDepth)).W))))) else None
   val sparseActivationEnable = if (params.SKIP_ZERO_WEIGHTS)
     Some(WireDefault(VecInit(Seq.fill(totalSyncMems)(false.B)))) else None
   val activationReadData = if (params.SKIP_ZERO_WEIGHTS) Some(VecInit(I_MEM.zipWithIndex.map { case (mem, i) =>
@@ -211,7 +213,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   // === Activation scratchpad read registers ===
   // counter register to iterate rows -- for I_MEM
   val counter_row = RegInit(0.U(log2Ceil(max_blocks_in_sync_mem).W))
-  val offset_counter = RegInit(0.U(log2Ceil(4).W))
+  val offset_counter = RegInit(0.U(math.max(1, log2Ceil(activationCells)).W))
   val I_vals = RegInit(VecInit(Seq.fill(totalSyncMems)(0.U(params.DMA_bits.W)))) // Store read results
 
   val valid_inputs = Reg(UInt(log2Ceil(totalSyncMems * max_blocks_in_sync_mem + 1).W))
@@ -345,7 +347,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
 
   // === Runtime element formats and performance counters ===
   //bitwidths
-  val input_bits  = if (fp16Geometry) 16.U(6.W) else RegInit(0.U(6.W)) //  input bits
+  val input_bits  = if (fpGeometry) params.FP_BITS.U(6.W) else RegInit(0.U(6.W)) //  input bits
   val weight_bits = RegInit(0.U(6.W)) //  weights bits
 
   val PC_loadX    =  RegInit(0.U(64.W))
@@ -362,11 +364,11 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val dirty_elems_x         = RegInit(0.U(log2Ceil(params.DMA_bits/params.minInputBits).W)) // Initial activation-element offset for bank traversal.
   // Counts activation elements along K; output-column capacity must not truncate it.
   val all_available_elems_x = RegInit(0.U(log2Ceil(params.Cin + 1).W))
-  val x_elems_per_reg       = if (fp16Geometry) 1.U(2.W) else RegInit((params.XBitWidth / params.minInputBits).U)             //How many input elements fit  in one input register
+  val x_elems_per_reg       = if (fpGeometry) 1.U(2.W) else RegInit((params.XBitWidth / params.minInputBits).U)             //How many input elements fit  in one input register
   val w_elems_per_reg = RegInit((params.WBitWidth / params.minWeightBits).U(3.W) )            //How many weight elements fit  in one weight register
 
   // === Product-table geometry and precision masks ===
-  val mask_p               = RegInit(0.U(log2Ceil(((1 << (params.WBitWidth + params.XBitWidth)) - 1) + 1).W))
+  val mask_p               = RegInit(0.U((params.WBitWidth + params.XBitWidth).W))
   val block_rows           = RegInit(0.U(log2Ceil((1 << (params.WBitWidth - 2)) + 1).W))
   val blocks_in_Sync_mem = RegInit(0.U(log2Ceil((max_blocks_in_sync_mem) + 1).W))
   val shiftAmt  = Log2(block_rows) // block_rows is 1, 4 or 64 for W2, W4 or W8.
@@ -384,7 +386,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val elements_to_read_temp = RegInit(0.U((log2Ceil(max_w_elems) + 1).W))
 
   // DMA bus parameters (how many register or elements fitr in 64 bits dma channel)
-  val elemsPerChunk_in = if (fp16Geometry) 4.U(5.W) else RegInit(0.U(5.W))
+  val elemsPerChunk_in = if (fpGeometry) (params.DMA_bits / params.FP_BITS).U(5.W) else RegInit(0.U(5.W))
   val RegsPerChunk_in  = RegInit((params.DMA_bits / params.XBitWidth).U(math.max(1, log2Ceil(params.DMA_bits / params.XBitWidth) + 1).W))
   val elemsPerChunk_w  = RegInit((params.DMA_bits / params.minInputBits).asUInt)
   val RegsPerChunk_w   = RegInit((params.DMA_bits / params.WBitWidth).U(math.max(1, log2Ceil(params.DMA_bits / params.WBitWidth) + 1).W))
@@ -447,7 +449,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   // FP16 special values also retain dense replay, preserving 0*Inf/NaN flags.
   if (params.SKIP_ZERO_WEIGHTS) {
     zeroSkipMode := input_bits === 16.U && dirty_elems_x === 0.U &&
-      (if (params.FP16_ACTIVATIONS) !zeroSkipSpecial.get else true.B)
+      (if (params.FP_ACTIVATIONS) !zeroSkipSpecial.get else true.B)
   }
   val zeroSelector = if (params.SKIP_ZERO_WEIGHTS)
     Some(Module(new ZeroWeightSelector(weightBanks, RowsPerBlock))) else None
@@ -469,13 +471,13 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val sparseSum = if (params.SKIP_ZERO_WEIGHTS) Some(Wire(Vec(totalSyncMems, SInt((params.XBitWidth + 1).W)))) else None
   val sparseSign = if (params.SKIP_ZERO_WEIGHTS) Some(Wire(Vec(totalSyncMems, Bool()))) else None
   val sparseValid = if (params.SKIP_ZERO_WEIGHTS) Some(Wire(Vec(totalSyncMems, Bool()))) else None
-  val sparseMeta = if (params.SKIP_ZERO_WEIGHTS && params.FP16_ACTIVATIONS)
-    Some(Wire(Vec(totalSyncMems, new FP16ProductMeta))) else None
+  val sparseMeta = if (params.SKIP_ZERO_WEIGHTS && params.FP_ACTIVATIONS)
+    Some(Wire(Vec(totalSyncMems, new FPProductMeta(params.FP_BITS)))) else None
   if (params.SKIP_ZERO_WEIGHTS) {
     val selector = zeroSelector.get
     for (bank <- 0 until weightBanks) {
       val weightS1 = RegEnable(selector.io.weight(bank), selector.io.valid && selector.io.laneValid(bank))
-      val cellS1 = RegEnable(selector.io.position(bank)(1, 0), selector.io.valid && selector.io.laneValid(bank))
+      val cellS1 = RegEnable(selector.io.position(bank)(math.max(1, log2Ceil(activationCells)) - 1, 0), selector.io.valid && selector.io.laneValid(bank))
       val weight = selector.io.weight(bank)
       val magnitude = Mux(weight < 0.S, -weight, weight).asUInt
       val tableRow = (selector.io.position(bank) << shiftAmt) + ((magnitude - 1.U) >> 1)
@@ -484,24 +486,24 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         val request = selector.io.valid && selector.io.laneValid(bank) && y.U < YS
         val validS1 = RegNext(request, false.B)
         when(zeroSkipMode) {
-          sparseActivationAddress.get(lane) := selector.io.position(bank) >> 2
+          sparseActivationAddress.get(lane) := selector.io.position(bank) >> log2Ceil(activationCells)
           sparseActivationEnable.get(lane) := request
           productReadAddress.get(lane) := tableRow
           productReadEnable.get(lane) := request
         }
-        val cells = VecInit(Seq.tabulate(4)(i => activationReadData.get(lane)(16 * i + 15, 16 * i)))
+        val cells = VecInit(Seq.tabulate(activationCells)(i => activationReadData.get(lane)(params.XBitWidth * (i + 1) - 1, params.XBitWidth * i)))
         val activation = cells(cellS1)
-        val negative = activation(15) ^ weightS1(7)
-        val absolute = if (params.FP16_ACTIVATIONS) FP16Activation.significand(activation).zext
-          else Mux(activation.asSInt < 0.S, -activation.asSInt.pad(17), activation.asSInt.pad(17))
+        val negative = activation(params.XBitWidth - 1) ^ weightS1(7)
+        val absolute = if (params.FP_ACTIVATIONS) FPActivation.significand(activation, params.FP_BITS).zext
+          else Mux(activation.asSInt < 0.S, -activation.asSInt.pad(params.XBitWidth + 1), activation.asSInt.pad(params.XBitWidth + 1))
         val signed = Mux(negative, -absolute, absolute)
-        val correction = Mux(validS1 && weightS1.asUInt(0), signed, 0.S(17.W))
+        val correction = Mux(validS1 && weightS1.asUInt(0), signed, 0.S((params.XBitWidth + 1).W))
         sparseProducts.get(lane) := ShiftRegister(productReadData.get(lane), 3)
         sparseSum.get(lane) := ShiftRegister(correction, 3)
         sparseSign.get(lane) := ShiftRegister(!negative, 3)
         sparseValid.get(lane) := ShiftRegister(validS1, 3, false.B, true.B)
-        if (params.FP16_ACTIVATIONS) {
-          sparseMeta.get(lane).shift := ShiftRegister(FP16Activation.shift(activation), 3)
+        if (params.FP_ACTIVATIONS) {
+          sparseMeta.get(lane).shift := ShiftRegister(FPActivation.shift(activation, params.FP_BITS), 3)
           sparseMeta.get(lane).nonZeroWeight := sparseValid.get(lane)
           sparseMeta.get(lane).flags := 0.U // Special-value windows use the dense path.
         }
@@ -589,8 +591,8 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
     val count = RegEnable(outputReadCount, outputReadIssue)
     val offset = RegEnable(outputReadParity.get, outputReadIssue)
     val words = (0 until elems_per_chunk).map { i =>
-      val bits = if (params.FP16_ACTIVATIONS) {
-        val convert = Module(new Fixed24ToFP32(accumulatorWidth, if (groupScaling) 48 else 24))
+      val bits = if (params.FP_ACTIVATIONS) {
+        val convert = Module(new FixedToFP32(accumulatorWidth, params.fpFractionalBits + (if (groupScaling) 24 else 0)))
         convert.io.value := mem.io.storeValues(i)
         convert.io.flags := mem.io.storeFlags(i)
         convert.io.bits
@@ -638,7 +640,8 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
       params.DMA_bits,
       product_bitwidth,
       params.minInputBits,
-      params.FP16_ACTIVATIONS,
+      params.FP_ACTIVATIONS,
+      params.FP_BITS,
       if (params.parallel_rows > 1) params.banks_per_row else 0,
       params.FLEXIBLE_BANK_GROUPING
     ))
@@ -739,7 +742,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
 
         // XS YS Registers Init
         YS      := Mux(rin_reg >= y_slice_Reg,y_slice_Reg,rin_reg)
-        if (!fp16Geometry) elemsPerChunk_in := params.DMA_bits.U / input_bits
+        if (!fpGeometry) elemsPerChunk_in := params.DMA_bits.U / input_bits
         elemsPerChunk_w  :=   params.DMA_bits.U  / weight_bits
       }
 
@@ -753,7 +756,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         clmp := scaledSlice
         val clamped = if (params.GROUP_SCALE_ALIGNED) groupWindow(scaledSlice, 0.U)
           else Mux(cin_reg >= scaledSlice, scaledSlice, cin_reg)
-        val elems_per_word = if (fp16Geometry) 1.U else params.XBitWidth.U/input_bits
+        val elems_per_word = if (fpGeometry) 1.U else params.XBitWidth.U/input_bits
         val temp_mul       = clamped * elems_per_word
 
         x_slice_input_reg := (if (params.GROUP_SCALE_ALIGNED) clamped else scaledSlice)
@@ -763,7 +766,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         }
         XS                := clamped
 
-        if (!fp16Geometry) x_elems_per_reg := elems_per_word
+        if (!fpGeometry) x_elems_per_reg := elems_per_word
         w_elems_per_reg := params.WBitWidth.U/weight_bits
 
         //before load X
@@ -772,7 +775,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         mul2                  := temp_mul
 
         //dynamic bitwitdh parameters
-        val p_bits = input_bits + weight_bits
+        val p_bits = input_bits +& weight_bits
         chunks_per_Product_bits := p_bits
         mask_p                  := (1.U << p_bits) - 1.U
         block_rows              := (1.U << (weight_bits  -2.U ))
@@ -826,7 +829,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
       }
 
       when(cmd.fire && (mode_8)) {
-        if (!fp16Geometry) input_bits := (if (params.FP16_ACTIVATIONS) 16.U else rs1(5,0))
+        if (!fpGeometry) input_bits := rs1(5,0)
         weight_bits  := rs1(11,6)
 
         if(params.DEBUG){
@@ -1069,7 +1072,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         buffers_mode.foreach(_ := false.B)
 
         state      := sGenerateRegFiles
-        if (params.SKIP_ZERO_WEIGHTS && params.FP16_ACTIVATIONS) zeroSkipSpecial.get := false.B
+        if (params.SKIP_ZERO_WEIGHTS && params.FP_ACTIVATIONS) zeroSkipSpecial.get := false.B
         // Seed selection once after X is loaded, before producing its LUT rows.
         activationAddress.io.restart := true.B
         Products.foreach(_ := 0.U)
@@ -1089,16 +1092,16 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
 
       val start_row = counter_1 << shiftAmt
 
-      if (params.SKIP_ZERO_WEIGHTS && params.FP16_ACTIVATIONS) {
+      if (params.SKIP_ZERO_WEIGHTS && params.FP_ACTIVATIONS) {
         // Inspect each valid activation during its ordinary LUT generation.
         // Do not suppress 0*Inf/NaN: the whole window then replays densely.
         when(cycleCount_1 === 0.U) {
           for (lane <- 0 until totalSyncMems) {
             val word = I_vals(rotatedActivationBank(lane, activationAddress.io.bankShift))
-            val cells = VecInit(Seq.tabulate(4)(i => word(16 * i + 15, 16 * i)))
+            val cells = VecInit(Seq.tabulate(activationCells)(i => word(params.XBitWidth * (i + 1) - 1, params.XBitWidth * i)))
             val bits = cells(activationAddress.io.cell)
             val logical = bankOffset(blocks_in_Sync_mem, lane % weightBanks) + counter_1
-            when((lane / weightBanks).U < YS && logical < valid_inputs && bits(14, 10).andR) {
+            when((lane / weightBanks).U < YS && logical < valid_inputs && bits(params.FP_BITS - 2, FPActivation.fractionBits(params.FP_BITS)).andR) {
               zeroSkipSpecial.get := true.B
             }
           }
@@ -1128,14 +1131,14 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         cycleCount_1 := 0.U
         Products.foreach(_ := 0.U)
 
-        offset_counter := Mux(offset_counter === 3.U, 0.U, offset_counter + 1.U)
-        counter_row    := Mux(offset_counter === 3.U, counter_row + 1.U, counter_row)
+        offset_counter := Mux(offset_counter === (activationCells - 1).U, 0.U, offset_counter + 1.U)
+        counter_row    := Mux(offset_counter === (activationCells - 1).U, counter_row + 1.U, counter_row)
 
       }
 
       // Request phase (cycle N)
-      val enable_read = ((cycleCount_1 === block_rows - 2.U) && (offset_counter === 3.U)) || (block_rows === 1.U)
-      val row         = Mux(offset_counter === 3.U, counter_row + 1.U, counter_row)
+      val enable_read = ((cycleCount_1 === block_rows - 2.U) && (offset_counter === (activationCells - 1).U)) || (block_rows === 1.U)
+      val row         = Mux(offset_counter === (activationCells - 1).U, counter_row + 1.U, counter_row)
 
       // Read request
       val readData = readActivations(row, enable_read)
@@ -1235,7 +1238,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
 
         // Request phase (cycle N)
         val enable_read = selectionIssue && (offset_counter === 0.U)
-        val row         = Mux(offset_counter === 3.U, counter_row + 1.U, counter_row)
+        val row         = Mux(offset_counter === (activationCells - 1).U, counter_row + 1.U, counter_row)
 
         // Read request
         val readData = readActivations(row, enable_read)
@@ -1250,7 +1253,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         }
 
         when(selectionIssue) {
-          when(offset_counter === 3.U && cycleCount_2 === x_elems_per_reg - 1.U) {
+          when(offset_counter === (activationCells - 1).U && cycleCount_2 === x_elems_per_reg - 1.U) {
             offset_counter := 0.U
             counter_row := counter_row + 1.U
           }.otherwise {
@@ -1361,7 +1364,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
 
           // 4. Extract Activation and Compute Product Sign
 
-          val w_reg_valid_temp = if (params.FP16_ACTIVATIONS) Valid_In_Vec(sync_mem_idx)
+          val w_reg_valid_temp = if (params.FP_ACTIVATIONS) Valid_In_Vec(sync_mem_idx)
           else (abs_weight_uint =/= 0.U) && Valid_In_Vec(sync_mem_idx)
 
           // Shared decoded-weight metadata for the next stage.
@@ -1402,26 +1405,26 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
           // 5.  Compute Signed Product
 
           val extended_activation = sign_X_reg_part.pad(params.XBitWidth + 1)
-          val abs_val_new = if (params.FP16_ACTIVATIONS) FP16Activation.significand(data).zext
+          val abs_val_new = if (params.FP_ACTIVATIONS) FPActivation.significand(data, params.FP_BITS).zext
           else Mux(extended_activation < 0.S, -extended_activation, extended_activation)
           val signed_val  = Mux(product_sign === 1.U, -abs_val_new, abs_val_new)
 
           val disable = (abs_weight_uint(0) === 0.U) || (abs_weight_uint === 0.U)  || !w_reg_valid_temp
           sum(sync_mem_idx) := RegNext(Mux(disable, 0.S, signed_val))
-          if (params.FP16_ACTIVATIONS) {
-            val special = data(14, 10).andR
-            val infinity = special && !data(9, 0).orR
-            val nan = w_reg_valid_temp && special && (data(9, 0).orR || abs_weight_uint === 0.U)
+          if (params.FP_ACTIVATIONS) {
+            val special = data(params.FP_BITS - 2, FPActivation.fractionBits(params.FP_BITS)).andR
+            val infinity = special && !data(FPActivation.fractionBits(params.FP_BITS) - 1, 0).orR
+            val nan = w_reg_valid_temp && special && (data(FPActivation.fractionBits(params.FP_BITS) - 1, 0).orR || abs_weight_uint === 0.U)
             val infProduct = w_reg_valid_temp && infinity && abs_weight_uint =/= 0.U
-            val meta = fp16Meta.get(sync_mem_idx)
-            meta.shift := RegNext(FP16Activation.shift(data))
+            val meta = fpMeta.get(sync_mem_idx)
+            meta.shift := RegNext(FPActivation.shift(data, params.FP_BITS))
             meta.nonZeroWeight := RegNext(w_reg_valid_temp && abs_weight_uint =/= 0.U)
             meta.flags := RegNext(Cat(infProduct && product_sign, infProduct && !product_sign, nan))
           }
 
           // 6. Read Partial Product from Temp Memory
 
-          val enable_read        = if (params.FP16_ACTIVATIONS) selectionValid(1) && w_reg_valid_temp && abs_weight_uint =/= 0.U
+          val enable_read        = if (params.FP_ACTIVATIONS) selectionValid(1) && w_reg_valid_temp && abs_weight_uint =/= 0.U
           else selectionValid(1) && w_reg_valid_temp
           val finalAddressInBRAM = row_idx
 
@@ -1507,14 +1510,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
                 (valid_read >> chunks_per_Product_bits) & mask_p
               )
 
-                val unsigned_clean = Mux1H(Seq(
-                (chunks_per_Product_bits === 10.U)  -> readDataVec_part(9, 0),   // 2+8 or 8+2
-                (chunks_per_Product_bits === 12.U)  -> readDataVec_part(11, 0),  // 4+8 or 8+4
-                (chunks_per_Product_bits === 16.U)  -> readDataVec_part(15, 0),  // 8+8
-                (chunks_per_Product_bits === 18.U)  -> readDataVec_part(17, 0),  // 16+2
-                (chunks_per_Product_bits === 20.U)  -> readDataVec_part(19, 0),  // 16+4
-                (chunks_per_Product_bits === 24.U)  -> readDataVec_part(23, 0)   // 16+8
-              ))
+                val unsigned_clean = readDataVec_part // Already masked to the runtime product width.
 
                 val readDataVec_part_sign = unsigned_clean.zext.asSInt
 
@@ -1523,9 +1519,9 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
                 readDataVec_part_sign - correction,
                 -readDataVec_part_sign - correction)
 
-                if (params.FP16_ACTIVATIONS) {
+                if (params.FP_ACTIVATIONS) {
                   val meta = if (params.SKIP_ZERO_WEIGHTS)
-                    Mux(zeroSkipMode, sparseMeta.get(product_idx), fp16Meta.get(product_idx)) else fp16Meta.get(product_idx)
+                    Mux(zeroSkipMode, sparseMeta.get(product_idx), fpMeta.get(product_idx)) else fpMeta.get(product_idx)
                   val aligned = (signedValue.pad(accumulatorWidth) << meta.shift)(accumulatorWidth - 1, 0).asSInt
                   Mux(meta.nonZeroWeight, aligned, 0.S(accumulatorWidth.W))
               } else signedValue
@@ -1556,16 +1552,16 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
           def rowFlags(y: Int): UInt = if (params.FLEXIBLE_BANK_GROUPING)
             MuxLookup(y_slice_Reg, 0.U(3.W))(groupingRows.filter(y < _).map(rows => {
               val b = totalSyncMems / rows
-              rows.U -> (0 until b).map(i => fp16Meta.get(y * b + i).flags).reduce(_ | _)
+              rows.U -> (0 until b).map(i => fpMeta.get(y * b + i).flags).reduce(_ | _)
             }))
             else (0 until groupSize).map(i =>
-              Mux(zeroSkipMode, 0.U, fp16Meta.get(y * groupSize + i).flags)).reduce(_ | _)
+              Mux(zeroSkipMode, 0.U, fpMeta.get(y * groupSize + i).flags)).reduce(_ | _)
 
           if (groupScaling) {
             val e = groupEngine.get
             e.io.valid := true.B
             for (lane <- 0 until totalSyncMems) {
-              assert(!fp16Meta.get(lane).flags.orR, "Group activations must be finite FP16")
+              assert(!fpMeta.get(lane).flags.orR, "Group activations must be finite FP16")
             }
             for (b <- 0 until (if (params.GROUP_SCALE_ALIGNED) 1 else weightBanks); y <- 0 until params.parallel_rows) {
               val value = if (params.GROUP_SCALE_ALIGNED) accum(y) else laneValues(y * weightBanks + b)
@@ -1576,23 +1572,23 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
               val mem = outputMemory.get
               mem.io.updateValid(y) := y.U < YS
               mem.io.delta(y) := accum(y)
-              if (params.FP16_ACTIVATIONS) {
+              if (params.FP_ACTIVATIONS) {
                 mem.io.flags(y) := rowFlags(y)
               }
             } else if (params.parallel_rows == 1) {
               O_reg.get(0)(y)(selectionColumn(3)) :=  (O_reg.get(0)(y)(selectionColumn(3)) +  accum(y))
-              if (params.FP16_ACTIVATIONS) {
+              if (params.FP_ACTIVATIONS) {
                 val flags = (0 until groupSize).map(i =>
-                  Mux(zeroSkipMode, 0.U, fp16Meta.get(y * groupSize + i).flags)).reduce(_ | _)
-                fp16Flags.get(y)(selectionColumn(3)) := fp16Flags.get(y)(selectionColumn(3)) | flags
+                  Mux(zeroSkipMode, 0.U, fpMeta.get(y * groupSize + i).flags)).reduce(_ | _)
+                fpFlags.get(y)(selectionColumn(3)) := fpFlags.get(y)(selectionColumn(3)) | flags
               }
             } else {
               when(y.U < YS) {
                 O_reg.get(0)(y)(selectionColumn(3)) := O_reg.get(0)(y)(selectionColumn(3)) + accum(y)
-                if (params.FP16_ACTIVATIONS) {
+                if (params.FP_ACTIVATIONS) {
                 val flags = (0 until groupSize).map(i =>
-                  Mux(zeroSkipMode, 0.U, fp16Meta.get(y * groupSize + i).flags)).reduce(_ | _)
-                  fp16Flags.get(y)(selectionColumn(3)) := fp16Flags.get(y)(selectionColumn(3)) | flags
+                  Mux(zeroSkipMode, 0.U, fpMeta.get(y * groupSize + i).flags)).reduce(_ | _)
+                  fpFlags.get(y)(selectionColumn(3)) := fpFlags.get(y)(selectionColumn(3)) | flags
                 }
               }
             }
@@ -1679,7 +1675,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
           mul1          := mul1_temp
 
           //before load X
-          val elems_per_word = if (fp16Geometry) 1.U else params.XBitWidth.U / input_bits
+          val elems_per_word = if (fpGeometry) 1.U else params.XBitWidth.U / input_bits
           all_available_elems_x := ((if (params.GROUP_SCALE_ALIGNED) XS_temp else XS) * elems_per_word).min(cin_reg - j_x)
           j_x_temp              := j_x
 
@@ -1747,12 +1743,12 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         if (params.BRAM_OUTPUTS) {
           dma.io.writeData := outputWords.get.io.deq.bits
           outputWords.get.io.deq.ready := dma.io.a_fire
-        } else if (params.FP16_ACTIVATIONS) {
+        } else if (params.FP_ACTIVATIONS) {
           val words = (0 until elems_per_chunk).map { i =>
             val index = dma_counter_a + i.U
-            val convert = Module(new Fixed24ToFP32(accumulatorWidth, if (groupScaling) 48 else 24))
+            val convert = Module(new FixedToFP32(accumulatorWidth, params.fpFractionalBits + (if (groupScaling) 24 else 0)))
             convert.io.value := O_reg.get(0)(Rin_cnt)(index)
-            convert.io.flags := fp16Flags.get(Rin_cnt)(index)
+            convert.io.flags := fpFlags.get(Rin_cnt)(index)
             Mux(i.U < R_elems_per_chunk, convert.io.bits, 0.U(32.W))
           }
           dma.io.writeData := words.zipWithIndex.foldLeft(0.U(params.DMA_bits.W)) { case (packed, (word, i)) =>
@@ -1808,7 +1804,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
             for (i <- 0 until elems_per_chunk) {
               when(i.U < R_elems_per_chunk) {
                 O_reg.get(0)(Rin_cnt)(dma_counter_a + i.U) := 0.S
-                if (params.FP16_ACTIVATIONS) fp16Flags.get(Rin_cnt)(dma_counter_a + i.U) := 0.U
+                if (params.FP_ACTIVATIONS) fpFlags.get(Rin_cnt)(dma_counter_a + i.U) := 0.U
               }
             }
           }
@@ -1871,7 +1867,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
           }
 
           // recompute chunk parameters for next X load
-          val elems_per_word = if (fp16Geometry) 1.U else params.XBitWidth.U / input_bits
+          val elems_per_word = if (fpGeometry) 1.U else params.XBitWidth.U / input_bits
           all_available_elems_x := (XS_temp * elems_per_word).min(cin_reg)
 
           // reset load counters

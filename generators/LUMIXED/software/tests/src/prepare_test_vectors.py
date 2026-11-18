@@ -3,8 +3,8 @@
 
 Modes:
   0: INT8/INT16 activations * signed W2/W4/W8 -> INT32
-  1: finite FP16 activations * signed W2/W4/W8 -> exact FP32 bits
-  2: finite FP16 activations * signed W2/W4 -> group-scaled FP32 bits
+  1: FP16/FP32 activations * signed W2/W4/W8 -> exact FP32 bits
+  2: finite FP16/FP32 activations * signed W2/W4/W8 -> group-scaled FP32 bits
 
 Group modes ALIGNED (1) and DEFERRED (2) have identical mathematical results.
 Scales are IEEE FP16 bits in [ceil(K/G)][N] group-major order, padded through
@@ -36,6 +36,17 @@ def fp16_fixed24(bits: int) -> int:
         raise ValueError('NaN/Inf are not allowed in group-scaling mode')
     value = frac if exp == 0 else (1024 + frac) << (exp - 1)
     return -value if bits & 0x8000 else value
+
+
+def fp_fixed(raw: int, fp_bits: int) -> int:
+    """Exact integer units of 2^-24 or 2^-149; no host float arithmetic."""
+    f, e = (10, 5) if fp_bits == 16 else (23, 8)
+    exponent = (raw >> f) & ((1 << e) - 1)
+    fraction = raw & ((1 << f) - 1)
+    if exponent == (1 << e) - 1:
+        raise ValueError("Group scaling requires finite activations")
+    value = fraction if exponent == 0 else ((1 << f) | fraction) << (exponent - 1)
+    return -value if raw & (1 << (fp_bits - 1)) else value
 
 
 def round_rne_div_pow2(value: int, amount: int) -> int:
@@ -95,8 +106,10 @@ def int_matmul(x: list[int], q: list[list[int]], r: int, k: int, n: int) -> list
     return result
 
 
-def fp16_matmul(x: list[int], q: list[list[int]], r: int, k: int, n: int) -> list[int]:
+def fp_matmul(x: list[int], q: list[list[int]], r: int, k: int, n: int, fp_bits: int = 16) -> list[int]:
     """Mirror the current C/RTL unscaled FP16 special-value behavior."""
+    fraction_bits, exp_mask = (10, 31) if fp_bits == 16 else (23, 255)
+    fixed_bits = 24 if fp_bits == 16 else 149
     result = []
     for row in range(r):
         for col in range(n):
@@ -105,9 +118,9 @@ def fp16_matmul(x: list[int], q: list[list[int]], r: int, k: int, n: int) -> lis
             for kk in range(k):
                 raw = x[row*k+kk]
                 weight = q[col][kk]
-                exp, frac = (raw >> 10) & 31, raw & 1023
-                if exp == 31:
-                    negative = bool(raw & 0x8000) != (weight < 0)
+                exp, frac = (raw >> fraction_bits) & exp_mask, raw & ((1 << fraction_bits) - 1)
+                if exp == exp_mask:
+                    negative = bool(raw & (1 << (fp_bits - 1))) != (weight < 0)
                     if frac or weight == 0:
                         nan = True
                     elif negative:
@@ -115,7 +128,7 @@ def fp16_matmul(x: list[int], q: list[list[int]], r: int, k: int, n: int) -> lis
                     else:
                         pos_inf = True
                 else:
-                    exact += fp16_fixed24(raw) * weight
+                    exact += fp_fixed(raw, fp_bits) * weight
             if nan or (pos_inf and neg_inf):
                 bits = 0x7FC00000
             elif pos_inf:
@@ -123,18 +136,18 @@ def fp16_matmul(x: list[int], q: list[list[int]], r: int, k: int, n: int) -> lis
             elif neg_inf:
                 bits = 0xFF800000
             else:
-                bits = fixed_to_fp32_bits(exact, 24)
+                bits = fixed_to_fp32_bits(exact, fixed_bits)
             result.append(bits)
     return result
 
 
 def grouped_matmul(x: list[int], q: list[list[int]], scales: list[int],
-                   r: int, k: int, n: int, group_size: int) -> list[int]:
+                   r: int, k: int, n: int, group_size: int, fp_bits: int = 16) -> list[int]:
     """Exact fixed48 group scaling with ONE final FP32 rounding."""
     groups = (k + group_size - 1) // group_size
     if len(scales) != groups * n:
         raise ValueError('Scale dimensions must be [ceil(K/G)][N]')
-    xf = [fp16_fixed24(raw) for raw in x]
+    xf = [fp_fixed(raw, fp_bits) for raw in x]
     sf = [fp16_fixed24(raw) for raw in scales]
     result = []
     for row in range(r):
@@ -145,7 +158,7 @@ def grouped_matmul(x: list[int], q: list[list[int]], scales: list[int],
                 partial_fixed24 = sum(xf[row*k+kk] * q[col][kk]
                                       for kk in range(begin, end))
                 total_fixed48 += partial_fixed24 * sf[g*n+col]
-            result.append(fixed_to_fp32_bits(total_fixed48, 48))
+            result.append(fixed_to_fp32_bits(total_fixed48, (24 if fp_bits == 16 else 149) + 24))
     return result
 
 
@@ -163,35 +176,44 @@ class Vectors:
     packed_weights: list[int]
     expected: list[int]
     scales: list[int]
-    fp16_activations: bool
+    fp_activations: bool
     group_scale_mode: int
     group_size: int
 
 
 def prepare(rin: int, cin: int, cout: int, in_bits: int, w_bits: int,
-            seed: int = 1, pattern: int = 0, *, fp16_activations: bool = False,
+            seed: int = 1, pattern: int = 0, *, fp_activations: bool = False,
             group_scale_mode: int = 0, group_size: int = 64) -> Vectors:
-    if min(rin, cin, cout) < 1 or in_bits not in (8, 16) or w_bits not in (2, 4, 8):
+    if min(rin, cin, cout) < 1 or in_bits not in (8, 16, 32) or w_bits not in (2, 4, 8):
         raise ValueError('Invalid matrix size or element precision')
     if pattern not in (0, 1, 2):
         raise ValueError('pattern must be 0, 1, or 2')
     if group_scale_mode not in (0, 1, 2):
         raise ValueError('group scale mode must be 0=off, 1=aligned, or 2=deferred')
-    if fp16_activations and in_bits != 16:
-        raise ValueError('FP16 activations require 16-bit activation storage')
-    if group_scale_mode and (not fp16_activations or w_bits not in (2, 4)):
-        raise ValueError('Group scaling requires FP16 activations and signed W2/W4')
+    if fp_activations and in_bits not in (16, 32):
+        raise ValueError('FP activations require 16/32-bit storage')
+    if not fp_activations and in_bits == 32:
+        raise ValueError('INT32 activations are not supported')
+    if group_scale_mode and (not fp_activations or w_bits not in (2, 4, 8)):
+        raise ValueError('Group scaling requires FP16 activations and signed W2/W4/W8')
     if group_scale_mode and group_size not in (32, 64, 128):
         raise ValueError('Supported group sizes are 32, 64, 128')
 
     rng = newlib_rand(seed)
-    if fp16_activations:
+    if fp_activations:
         inputs = []
         for _ in range(rin * cin):
-            bits = next(rng) & 0xFFFF
-            if (bits & 0x7C00) == 0x7C00:
-                bits ^= 0x0400  # Mirror C's "Random finite FP16" path.
-            inputs.append(0xFBFF if pattern == 1 else bits)
+            if in_bits == 16:
+                bits = next(rng) & 0xFFFF
+                if (bits & 0x7C00) == 0x7C00:
+                    bits ^= 0x0400
+                minimum = 0xFBFF
+            else:
+                bits = next(rng) | ((next(rng) & 1) << 31)
+                if (bits & 0x7F800000) == 0x7F800000:
+                    bits ^= 0x00800000
+                minimum = 0xFF7FFFFF
+            inputs.append(minimum if pattern == 1 else bits)
     else:
         lo = -(1 << (in_bits - 1))
         inputs = [lo if pattern == 1 else lo + next(rng) % (1 << in_bits)
@@ -218,12 +240,12 @@ def prepare(rin: int, cin: int, cout: int, in_bits: int, w_bits: int,
         scale_rng = newlib_rand((seed ^ 0x5EED5CA1 ^ group_size) & 0xFFFFFFFF)
         scales = [SCALE_PALETTE[next(scale_rng) % len(SCALE_PALETTE)]
                   for _ in range(groups * cout)]
-        expected = grouped_matmul(inputs, q, scales, rin, cin, cout, group_size)
-    elif fp16_activations:
-        expected = fp16_matmul(inputs, q, rin, cin, cout)
+        expected = grouped_matmul(inputs, q, scales, rin, cin, cout, group_size, in_bits)
+    elif fp_activations:
+        expected = fp_matmul(inputs, q, rin, cin, cout, in_bits)
     else:
         expected = int_matmul(inputs, q, rin, cin, cout)
-    return Vectors(inputs, packed, expected, scales, fp16_activations,
+    return Vectors(inputs, packed, expected, scales, fp_activations,
                    group_scale_mode, group_size)
 
 
@@ -240,13 +262,13 @@ def _array(name: str, ctype: str, values: list[int], *, align8: bool = False) ->
 
 def write_header(path: str | Path, rin: int, cin: int, cout: int, in_bits: int,
                  w_bits: int, seed: int = 1, pattern: int = 0, *,
-                 fp16_activations: bool = False, group_scale_mode: int = 0,
+                 fp_activations: bool = False, group_scale_mode: int = 0,
                  group_size: int = 64) -> Vectors:
     data = prepare(rin, cin, cout, in_bits, w_bits, seed, pattern,
-                   fp16_activations=fp16_activations,
+                   fp_activations=fp_activations,
                    group_scale_mode=group_scale_mode, group_size=group_size)
-    mode = ('integer', 'fp16', 'group-aligned' if group_scale_mode == 1 else 'group-deferred')[
-        2 if group_scale_mode else (1 if fp16_activations else 0)]
+    mode = ('integer', f'fp{in_bits}', 'group-aligned' if group_scale_mode == 1 else 'group-deferred')[
+        2 if group_scale_mode else (1 if fp_activations else 0)]
     lines = [
         '/* Auto-generated host Python vectors and independent matmul reference. */',
         f'/* R={rin} K={cin} N={cout} A={in_bits} W={w_bits} SEED={seed} PATTERN={pattern} MODE={mode} */',
@@ -255,8 +277,11 @@ def write_header(path: str | Path, rin: int, cin: int, cout: int, in_bits: int,
         f'#if RIN_MAX != {rin} || CIN_MAX != {cin} || COUT_MAX != {cout} || IN_BITS != {in_bits} || W_BITS != {w_bits}',
         '#error "Python vectors and Linear-sw.c matrix geometry differ"',
         '#endif',
-        f'#if LUMIXED_FP16_ACTIVATIONS != {int(fp16_activations)} || LUMIXED_GROUP_SCALE_MODE != {group_scale_mode}',
+        f'#if LUMIXED_FP_ACTIVATIONS != {int(fp_activations)} || LUMIXED_GROUP_SCALE_MODE != {group_scale_mode}',
         '#error "Python reference mode and compiled LUMIXED flags differ"',
+        '#endif',
+        f'#if LUMIXED_FP_ACTIVATIONS && LUMIXED_FP_BITS != {in_bits}',
+        '#error "Python activation precision and hardware differ"',
         '#endif',
         f'#define LUMIXED_VECTOR_GROUP_SIZE {group_size if group_scale_mode else 0}',
     ]
@@ -279,18 +304,18 @@ def main() -> None:
         parser.add_argument(name, type=int)
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--pattern', type=int, default=0)
-    parser.add_argument('--fp16-activations', type=int, choices=(0, 1), default=0)
+    parser.add_argument('--fp-activations', type=int, choices=(0, 1), default=0)
     parser.add_argument('--group-scale-mode', type=int, choices=(0, 1, 2), default=0)
     parser.add_argument('--group-size', type=int, default=64)
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     data = write_header(args.output, args.rin, args.cin, args.cout,
                         args.in_bits, args.w_bits, args.seed, args.pattern,
-                        fp16_activations=bool(args.fp16_activations),
+                        fp_activations=bool(args.fp_activations),
                         group_scale_mode=args.group_scale_mode,
                         group_size=args.group_size)
     print(f'Python reference ready: {len(data.expected)} outputs; '
-          f'FP16={int(data.fp16_activations)}, group mode={data.group_scale_mode}, '
+          f'FP={int(data.fp_activations)}, group mode={data.group_scale_mode}, '
           f'group size={data.group_size if data.group_scale_mode else "off"}')
 
 
