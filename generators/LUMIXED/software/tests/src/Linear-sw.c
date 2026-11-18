@@ -1,20 +1,106 @@
-//SW TESTING tempalte 
+// Bare-metal LUMIXED matrix-multiplication test.
 #include <stdint.h>
-#include <stdlib.h> 
-#include "compiler.h"
+#include <stdlib.h>
 #include <stdbool.h>
-#include "rocc.h"
 #include <stdio.h>
 #include <time.h>
-#include <string.h> //memcopy
+#include <string.h>
+#include <math.h>
+#include "compiler.h"
+#include "rocc.h"
 
-// Deterministic inputs and compact output for correctness sweeps.
+// ============================================================================
+// 1. TEST PARAMETERS: element precision and matrix dimensions
+// ============================================================================
+#define IN_BITS            16  // Activation bit width.
+#define W_BITS              4  // Signed weight bit width.
+#define RIN_MAX             1  // Maximum input rows (R).
+#define CIN_MAX            64  // Maximum reduction dimension (K).
+#define COUT_MAX           64  // Maximum output columns (N).
+#define FILTERS_MAX         1  // Number of filters.
+
+// ============================================================================
+// 2. HARDWARE GEOMETRY: must match Config.scala
+// ============================================================================
+#define XS                  2  // Banks per activation row.
+#define YS                  1  // Parallel activation rows.
+#define Mem_row_factor      8  // Product-table capacity factor.
+
+// ============================================================================
+// 3. EXECUTION, OUTPUT AND DIAGNOSTIC OPTIONS
+// ============================================================================
+#define Debug               0  // Print input and output matrices.
+#define PC_COUNTERS         1  // Print accelerator performance counters.
+#define FPU                 0  // Whether the Rocket core supports an FPU.
+#define SCALE               0  // Legacy uniform integer-output scaling.
+
+// Build script controls FP16 hardware mode; this is not a runtime selector.
+#ifndef LUMIXED_FP16_ACTIVATIONS
+#define LUMIXED_FP16_ACTIVATIONS 0
+#endif
+
+// Allow runtime bank regrouping when implemented by the hardware.
+#ifndef LUMIXED_FLEXIBLE_BANK_GROUPING
+#define LUMIXED_FLEXIBLE_BANK_GROUPING 0
+#endif
+
+// Enable the group-scale configuration interface when supported by hardware.
+#ifndef LUMIXED_GROUP_SCALE_MODE
+#define LUMIXED_GROUP_SCALE_MODE 0
+#endif
+
+// Deterministic test inputs and reference generation.
 #ifndef LUMIXED_TEST_SEED
 #define LUMIXED_TEST_SEED 1
 #endif
 #ifndef LUMIXED_TEST_PATTERN
 #define LUMIXED_TEST_PATTERN 0
 #endif
+
+// ============================================================================
+// 4. DERIVED BUFFER SIZES: calculated from the parameters above
+// ============================================================================
+#define INPUT_SIZE (RIN_MAX * CIN_MAX)
+#define WEIGHT_SIZE (FILTERS_MAX * CIN_MAX * COUT_MAX)
+
+#if IN_BITS == 16 || IN_BITS == 8
+    #define MAX_INPUT_SIZE (RIN_MAX * CIN_MAX)
+#elif IN_BITS == 4
+    #define MAX_INPUT_SIZE ((RIN_MAX * CIN_MAX) / 2)
+#elif IN_BITS == 2
+    #define MAX_INPUT_SIZE ((RIN_MAX * CIN_MAX) / 4)
+#endif
+
+#if LUMIXED_FP16_ACTIVATIONS
+    #define MAX_WEIGHT_SIZE ((CIN_MAX * COUT_MAX * W_BITS + 7) / 8)
+#elif W_BITS == 8
+    #define MAX_WEIGHT_SIZE (CIN_MAX * COUT_MAX)
+#elif W_BITS == 4
+    #define MAX_WEIGHT_SIZE ((CIN_MAX * COUT_MAX + 1) / 2)
+#elif W_BITS == 2
+    #define MAX_WEIGHT_SIZE ((CIN_MAX * COUT_MAX + 3) / 4)
+#endif
+
+// ============================================================================
+// 5. COMPILE-TIME FORMAT CHECKS
+// ============================================================================
+#if LUMIXED_FP16_ACTIVATIONS && (IN_BITS != 16 || (W_BITS != 8 && W_BITS != 4 && W_BITS != 2))
+#error "FP16 activations require IN_BITS=16 and integer W_BITS=8, 4 or 2"
+#endif
+#if LUMIXED_FP16_ACTIVATIONS && SCALE
+#error "FP16 mode already returns FP32; the integer SCALE path must be disabled"
+#endif
+#if LUMIXED_GROUP_SCALE_MODE && !LUMIXED_FP16_ACTIVATIONS
+#error "Group scaling requires FP16 activations"
+#endif
+#if LUMIXED_GROUP_SCALE_MODE && !defined(LUMIXED_PREGENERATED_TEST)
+#error "Group-scaling test requires a pregenerated Python reference and scales"
+#endif
+#if SCALE && defined(LUMIXED_PREGENERATED_TEST)
+#error "Legacy uniform SCALE is not covered by the Python reference"
+#endif
+
+// The printf wrapper follows its function definition so it cannot recurse.
 #if defined(LUMIXED_QUIET_TEST) && LUMIXED_QUIET_TEST
 #include <stdarg.h>
 static int lumixed_test_printf(const char *fmt, ...) {
@@ -30,62 +116,15 @@ static int lumixed_test_printf(const char *fmt, ...) {
 #define printf lumixed_test_printf
 #endif
 
+// ============================================================================
+// 6. RUNTIME TEST/HARDWARE CONFIGURATION
+// ============================================================================
+bool fast_mode = false;       // Skip software/hardware result comparison.
+bool ultra_fast_mode = false; // Skip random test-vector generation.
 
-
-//////////////////////// TEST PARAMETERS ////////////////////////////////////
-
-//BITWITH of elemetns 
-#define IN_BITS 16
-#define W_BITS 4
-
-// Compile-time format, matched to Config.scala by build.sh. No runtime mode bit.
-#ifndef LUMIXED_FP16_ACTIVATIONS
-#define LUMIXED_FP16_ACTIVATIONS 0
-#endif
-#if LUMIXED_FP16_ACTIVATIONS && (IN_BITS != 16 || (W_BITS != 8 && W_BITS != 4 && W_BITS != 2))
-#error "FP16 activations require IN_BITS=16 and integer W_BITS=8, 4 or 2"
-#endif
-
-#define Debug 0       // print input and output matrices 
-#define PC_COUNTERS  1   // print Perforamce Counters of every stage of Accelerator 
-#define FPU  0           // Rocekt Core it used support FPU or not 
-#define BAREMETAl_NEW 0
-
-#if BAREMETAl_NEW == 1 
-    #include <stdio.h>
-    #include <stdlib.h>
-    #include <fcntl.h>
-    #include <unistd.h>
-    #include <sys/ioctl.h>
-    #include <sys/mman.h>
-    #include <stdint.h>
-    #include <string.h>
-
-    // IOCTL command (ίδιο με τον driver)
-    #define GET_PHYS_ADDR _IOR('K', 1, uint64_t)
-#endif 
-
-
-//Matrix Multiplcation Parameters 
-#define RIN_MAX 1
-#define CIN_MAX 64
-#define COUT_MAX 64
-#define FILTERS_MAX 1
-
-//debug parameters 
-bool fast_mode = false; // run faster not compare if SW and HW is the same (it is just trust me)
-bool ultra_fast_mode = false; // even faster skip generate random values 
-
-#define XS 2
-#define YS 1
-#define Mem_row_factor 8
-//HW parameters  (WARNING this must be same as CONFIGS HW)
+// Runtime bank geometry (initialized from the compile-time settings).
 int x_slice_max = XS;
 int y_slice = YS;
-
-#ifndef LUMIXED_FLEXIBLE_BANK_GROUPING
-#define LUMIXED_FLEXIBLE_BANK_GROUPING 0
-#endif
 
 // Call while idle, before preload_hw(). XS*YS is the physical lane count;
 // YS is the maximum supported grouping, not the number of rows in a tail.
@@ -98,10 +137,6 @@ static inline int lumixed_select_bank_grouping(unsigned rows) {
     x_slice_max = (XS * YS) / (int)rows;
     return 0;
 }
-
-#ifndef LUMIXED_GROUP_SCALE_MODE
-#define LUMIXED_GROUP_SCALE_MODE 0
-#endif
 
 // Scales are contiguous FP16 bits s[ceil(Cin/G)][Cout], group-major.
 // Configure before preload_hw; no scale computation or matmul runs on the CPU.
@@ -118,39 +153,12 @@ int ACTIVATION_MAX_BITS = 16;
 int WEIGHTS_MAX_BITS    = 8;
 int RF = Mem_row_factor; 
 
-bool cahce4_8 = false; // true false 
-#define SCALE    0 // 0 1 
-#if LUMIXED_FP16_ACTIVATIONS && SCALE
-#error "FP16 mode already returns FP32; the integer SCALE path must be disabled"
-#endif
+bool cahce4_8 = false;  // Enable the legacy 4-bit input / 8-bit weight path.
 
-//Matrix Dimensions 
+// Matrix dimension limits used for test buffers.
 int Rin_max  = RIN_MAX;
 int Cin_max  = CIN_MAX;
 int Cout_max = COUT_MAX;
-
-#define INPUT_SIZE (RIN_MAX * CIN_MAX)
-#define WEIGHT_SIZE (FILTERS_MAX * CIN_MAX * COUT_MAX)
-
-// Calculate max input size based on IN_BITS
-#if IN_BITS == 16 || IN_BITS == 8
-    #define MAX_INPUT_SIZE (RIN_MAX * CIN_MAX)
-#elif IN_BITS == 4
-    #define MAX_INPUT_SIZE ((RIN_MAX * CIN_MAX) / 2)
-#elif IN_BITS == 2
-    #define MAX_INPUT_SIZE ((RIN_MAX * CIN_MAX) / 4)
-#endif
-
-// Calculate max weight size based on W_BITS
-#if LUMIXED_FP16_ACTIVATIONS
-    #define MAX_WEIGHT_SIZE ((CIN_MAX * COUT_MAX * W_BITS + 7) / 8)
-#elif W_BITS == 8
-    #define MAX_WEIGHT_SIZE (CIN_MAX * COUT_MAX)
-#elif W_BITS == 4
-    #define MAX_WEIGHT_SIZE ((CIN_MAX * COUT_MAX) / 2)
-#elif W_BITS == 2
-    #define MAX_WEIGHT_SIZE ((CIN_MAX * COUT_MAX) / 4)
-#endif
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -397,7 +405,7 @@ void printMatrices_in(LUMIXEDParams p, input_t *inputMatrix) {
     #elif IN_BITS == 4     
         int total_elements = p.Rin * p.Cin;
         for (int i = 0; i < total_elements / 2; i++) {
-            int8_t packed = inputMatrix[i];  // Περιέχει δύο int4_t
+            int8_t packed = inputMatrix[i];  // Contains two packed INT4 values.
             
             int8_t high = (packed >> 4) & 0x0F;
             int8_t low  = packed & 0x0F;
@@ -415,7 +423,7 @@ void printMatrices_in(LUMIXEDParams p, input_t *inputMatrix) {
         int total_elements = p.Rin * p.Cin;
 
         for (int i = 0; i < total_elements / 4; i++) {
-            int8_t packed = inputMatrix[i];  // Περιέχει 4 int2_t
+            int8_t packed = inputMatrix[i];  // Contains four packed INT2 values.
 
             int8_t v0 = (packed >> 0) & 0x03;
             int8_t v1 = (packed >> 2) & 0x03;
@@ -599,7 +607,7 @@ void generate_random_matrix_w(QuantizedTensor_weight *matrix, int size, int filt
     #endif
 }
 
-void generate_random_float_matrix(float *matrix, int size, float min_val, float max_val) { //new 
+void generate_random_float_matrix(float *matrix, int size, float min_val, float max_val) { 
     srand(LUMIXED_TEST_SEED); // Seed RNG
 
     for (int i = 0; i < size; ++i) {
@@ -608,8 +616,6 @@ void generate_random_float_matrix(float *matrix, int size, float min_val, float 
     }
 }
 
-#include <math.h>
-#include <stdio.h>
 
 int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW, 
                     int num_filters, int Rin, int Cout
@@ -633,7 +639,6 @@ int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW,
     #endif
 
     
-    // for (int f = 0; f < num_filters; f++) {
         for (int r = 0; r < Rin; r++) {
             for (int c = 0; c < Cout; c++) {
                 int index = 0 * Rin * Cout + r * Cout + c;
@@ -676,7 +681,6 @@ int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW,
                 #endif
 
             }
-        // }
     }
 
      if (exact_matches != total_elements) { 
@@ -767,7 +771,6 @@ void preload_hw(
         x_slice_weights_reg = (scaledSlice + WEIGHTS_MAX_BITS / w_bits - 1)
                              / (WEIGHTS_MAX_BITS / w_bits);
         #endif
-        // printf("x_slice_weights_reg = %d\n",x_slice_weights_reg);
         x_elems = scaledSlice * (ACTIVATION_MAX_BITS / input_bits);
         dma_limit = (Cin + x_elems - 1) / x_elems;
     }
@@ -785,9 +788,6 @@ void preload_hw(
     
     #if BAREMETAL_NEW == 0
         // Print addresses before calling load functions
-        // printf("outputMatrix_HW address: %p\n", (void*)&outputMatrix_HW[0 * Cout]);
-        // printf("inputMatrix address: %p\n", (void*)&inputMatrix[0 * Cin]);
-        // printf("weightMatrix address: %p\n", (void*)&weightMatrix[0]);
 
         load_o(&outputMatrix_HW[0 * Cout], Cout);
         load_x(&inputMatrix[0 * Cin], x_slice);
@@ -810,14 +810,6 @@ void HW_Mat_Mul(
     , float scale
     #endif
 ) {
-    // // Call preload setup
-    // preload(Cin, Rin, Cout, x_slice, parallel_rin, inputMatrix, weightMatrix, outputMatrix_HW
-    //     #if SCALE == 1
-    //     , scale
-    //     #endif
-    // );
-
-    // Start computation
     start_calculation();
 
     asm volatile ("fence rw, rw" ::: "memory"); // Memory sync
@@ -846,7 +838,7 @@ void transpose_weightMatrix(weight_t *c, int Cin, int Cout) {
     memcpy(c, temp, sizeof(weight_t) * Cin * Cout);
 
     #elif W_BITS == 4
-    // 2 values per byte: Cin * Cout values → (Cin * Cout + 1) / 2 bytes
+    // 2 values per byte: Cin * Cout values require (Cin * Cout + 1) / 2 bytes
     uint8_t temp[(Cin * Cout + 1) / 2];
     memset(temp, 0, sizeof(temp));
 
@@ -869,7 +861,7 @@ void transpose_weightMatrix(weight_t *c, int Cin, int Cout) {
     memcpy(c, temp, sizeof(temp));
 
     #elif W_BITS == 2
-    // 4 values per byte: Cin * Cout values → (Cin * Cout + 3) / 4 bytes
+    // 4 values per byte: Cin * Cout values require (Cin * Cout + 3) / 4 bytes
     uint8_t temp[(Cin * Cout + 3) / 4];
     memset(temp, 0, sizeof(temp));
 
@@ -893,9 +885,6 @@ void transpose_weightMatrix(weight_t *c, int Cin, int Cout) {
 
     #endif
 }
-
-
-
 
 
 void SW_Mat_Mul(
@@ -1050,9 +1039,6 @@ void matmul_hw_uniform(
 
 }
 
-#define FP32_STRICT_TOL  1e-6f  // Debug/verification
-#define FP32_LOOSE_TOL   1e-3f  // Optimized kernels
-
 int main() {
     int test_failed = 0; 
     printf("HW parameters (WARNING: same as CONFIGS HW): x_slice_max = %d, y_slice_max = %d, ACTIVATION_MAX_BITS = %d, WEIGHTS_MAX_BITS = %d\n", x_slice_max, y_slice, ACTIVATION_MAX_BITS, WEIGHTS_MAX_BITS);
@@ -1066,11 +1052,8 @@ int main() {
         }; 
     
     QuantizedTensor_input inputMatrix;
-    QuantizedTensor_weight weightMatrix[filters_max]; //new
-    int COUT [filters_max]; //new
-
-
-#if BAREMETAl_NEW == 0
+    QuantizedTensor_weight weightMatrix[filters_max]; 
+    int COUT [filters_max]; 
   printf("Hello Baremetal Mode\n");
 
     // static arrays for bare-metal
@@ -1081,89 +1064,8 @@ int main() {
     inputMatrix.q = inputMatrix_q;
     for (int f = 0; f < p.num_filters; f++)
         weightMatrix[f].q = weightMatrix_q[f];
-#endif
-
-#if BAREMETAl_NEW == 1
-
-  printf("Hello Linux Mode\n");
- // Ορίζουμε το συνολικό μέγεθος του DMA buffer
-    #define DMA_BUFFER_SIZE (MAX_INPUT_SIZE * sizeof(input_t) + \
-                         FILTERS_MAX * MAX_WEIGHT_SIZE * sizeof(weight_t) + \
-                         filters_max * Rin_max * Cout_max * sizeof(output_t))
-
-    int accel_fd;
-    void *dma_buffer;
-
-    // Εδώ προσθέτουμε το πεδίο για τη φυσική διεύθυνση του πίνακα εξόδου
-    struct dma_addrs {
-        uint64_t input_phys_addr;
-        uint64_t weights_phys_addr;
-        uint64_t output_phys_addr; 
-    };
-    struct dma_addrs phys_addrs;
-
-    // Άνοιγμα του device file του driver
-    accel_fd = open("/dev/my_accel", O_RDWR);
-    if (accel_fd < 0) {
-        perror("Failed to open accelerator device");
-        return -1;
-    }
-
-    // Χαρτογράφηση του συνολικού DMA buffer στο user-space
-    size_t total_buffer_size = MAX_INPUT_SIZE * sizeof(input_t) + 
-                               FILTERS_MAX * MAX_WEIGHT_SIZE * sizeof(weight_t) +
-                               filters_max * Rin_max * Cout_max * sizeof(output_t);
-    
-    dma_buffer = mmap(NULL, total_buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, accel_fd, 0);
-    if (dma_buffer == MAP_FAILED) {
-        perror("mmap failed");
-        close(accel_fd);
-        return -1;
-    }
-
-    // Υπολογισμός των pointers για κάθε πίνακα μέσα στο DMA buffer
-    inputMatrix.q = (input_t *)dma_buffer;
-
-    for (int f = 0; f < p.num_filters; f++) {
-        weightMatrix[f].q = (weight_t *)(dma_buffer + MAX_INPUT_SIZE * sizeof(input_t) + 
-                                        f * MAX_WEIGHT_SIZE * sizeof(weight_t));
-    }
-    
-    // Νέος pointer για τον πίνακα εξόδου, υπολογισμένος από το offset
-    output_t (*outputMatrix_HW)[Rin_max * Cout_max] = (output_t (*)[Rin_max * Cout_max])(dma_buffer + 
-                                                                                        MAX_INPUT_SIZE * sizeof(input_t) +
-                                                                                        FILTERS_MAX * MAX_WEIGHT_SIZE * sizeof(weight_t));
-
-#endif
 
 
-
-// // maloc edition 
-//    #if IN_BITS == 16
-//         inputMatrix.q = (input_t*) malloc(sizeof(input_t) * input_size);
-//     #elif IN_BITS == 8    
-//         inputMatrix.q = (input_t*) malloc(sizeof(input_t) * input_size);
-//     #elif IN_BITS == 4    
-//         inputMatrix.q = (input_t*) malloc(sizeof(input_t) * input_size/2);   
-//     #elif IN_BITS == 2    
-//         inputMatrix.q = (input_t*) malloc(sizeof(input_t) * input_size/4);    
-//     #endif    
-   
-//     #if W_BITS == 8
-//         for(int f =0 ; f < p.num_filters ; f++){ 
-//         weightMatrix[f].q = (weight_t*) malloc(sizeof(weight_t) * weight_size);
-//         }
-//     #elif W_BITS == 4    
-//         for(int f =0 ; f < p.num_filters ; f++){ 
-//         weightMatrix[f].q = (weight_t*) malloc(sizeof(weight_t) * weight_size/2);
-//         }
-//     #elif W_BITS == 2    
-//         for(int f =0 ; f < p.num_filters ; f++){ 
-//         weightMatrix[f].q = (weight_t*) malloc(sizeof(weight_t) * weight_size/4);
-//         }
-//     #endif    
-
-    
     output_t outputMatrix_SW[filters_max][Rin_max * Cout_max];  
  
     #ifdef LUMIXED_PREGENERATED_TEST
@@ -1173,22 +1075,11 @@ int main() {
     if(!ultra_fast_mode){ 
         printf("Generate matrices\n"); 
         generate_random_matrix_in(inputMatrix.q,Rin_max * Cin_max);
-        generate_random_matrix_w(weightMatrix,filters_max * Cin_max * Cout_max,p.num_filters);  //new 
+        generate_random_matrix_w(weightMatrix,filters_max * Cin_max * Cout_max,p.num_filters);  
     }
 
     #endif /* LUMIXED_PREGENERATED_TEST */
 
-    #if BAREMETAl_NEW == 1 
-        // Πάρε τις φυσικές διευθύνσεις από τον driver μέσω ioctl
-        #define ACCEL_GET_DMA_ADDRS  _IOR('a', 1, struct accel_phys_addrs)
-
-        if (ioctl(accel_fd, ACCEL_GET_DMA_ADDRS, &phys_addrs) < 0) {
-            perror("ioctl failed");
-            munmap(dma_buffer, total_buffer_size);
-            close(accel_fd);
-            return -1;
-        }
-    #endif
 
     
     #if SCALE == 1
@@ -1198,7 +1089,7 @@ int main() {
     inputMatrix.s =  0.01f + rand_frac * (1.0f - 0.01f); // [min_val, max_val)
 
     rand_frac = (float)rand() / RAND_MAX; // [0, 1)
-    for(int f =0 ; f < p.num_filters ; f++){ //new
+    for(int f =0 ; f < p.num_filters ; f++){ 
         rand_frac = (float)rand() / RAND_MAX; // [0, 1)
         weightMatrix[f].s = 0.01f + rand_frac * (0.5f - 0.01f); // [min_val, max_val)
     }
@@ -1216,7 +1107,7 @@ int main() {
    
     #ifndef LUMIXED_PREGENERATED_TEST
     if(!ultra_fast_mode){
-        for(int f =0; f < p.num_filters; f++){ //new
+        for(int f =0; f < p.num_filters; f++){ 
             transpose_weightMatrix(weightMatrix[f].q,p.Cin,COUT[f]);
         }
     }    
@@ -1229,7 +1120,7 @@ int main() {
     if(!fast_mode){
         printf("SW Mat-Mul Start\n");
         start = rdcycle();
-        for(int f =0; f < p.num_filters; f++){ //new
+        for(int f =0; f < p.num_filters; f++){ 
             matmul_sw_uniform(outputMatrix_SW[f], &inputMatrix, &weightMatrix[f], p.Cin,COUT[f],p.Rin); 
         }
         end = rdcycle();
@@ -1262,6 +1153,15 @@ int main() {
     start = rdcycle();
     for(int f = 0; f < p.num_filters; f++){  
 
+        // Configure per-K-group FP16 scales before starting the matmul.
+        // The accelerator DMA reads the padded, aligned array from memory.
+        #if LUMIXED_GROUP_SCALE_MODE
+        if (lumixed_set_group_scales(lumixed_vectors_scales, LUMIXED_VECTOR_GROUP_SIZE) != 0) {
+            printf("FAIL: group-scale setup\n");
+            return 1;
+        }
+        #endif
+
         preload_hw(p.Cin, p.Rin, COUT[f], p.x_slice, p.parallel_rin,inputMatrix.q,weightMatrix[f].q,outputMatrix_HW[f]);
 
         matmul_hw_uniform(outputMatrix_HW[f],&inputMatrix,&weightMatrix[f],p.Cin,COUT[f],p.x_slice, p.parallel_rin,Rin_max);
@@ -1270,7 +1170,7 @@ int main() {
     hw_cycles = end-start; 
     
     #ifdef LUMIXED_PREGENERATED_TEST
-    printf("Host integer reference; HW Mat-Mul %lu cycles\n", hw_cycles);
+    printf("Host Python reference; HW Mat-Mul %lu cycles\n", hw_cycles);
     #else
     if(!fast_mode){
         #if FPU == 1
@@ -1302,7 +1202,7 @@ int main() {
 
     #if FPU == 0
         if(!fast_mode){
-            for(int f =0; f < p.num_filters; f++){ //new
+            for(int f =0; f < p.num_filters; f++){ 
                 printf("Filter %d \n",f);
                 int result = compare_matrices(outputMatrix_HW[f], outputMatrix_SW[f],1, p.Rin, COUT[f]);
                 if (!result) test_failed = 1;
@@ -1311,7 +1211,7 @@ int main() {
         } 
     #elif FPU == 1
         if(!fast_mode){
-            for(int f =0; f < p.num_filters; f++){ //new
+            for(int f =0; f < p.num_filters; f++){ 
                 printf("Filter %d \n",f);
                 int result = compare_matrices(outputMatrix_HW[f], outputMatrix_SW[f],1, p.Rin, COUT[f],0.01f);
                 if (!result) test_failed = 1;
@@ -1339,8 +1239,6 @@ int main() {
         printf("-----------------------|------------|-----------\n");
         printf("Load X                 | %10lu | %6.2f%%\n", load_x, 100.0 * load_x / total_cycles);
         printf("Generate BRAMs         | %10lu | %6.2f%%\n", Generate_Brams, 100.0 * Generate_Brams / total_cycles);
-        // printf("Load W                 | %10lu | %6.2f%%\n", load_w, 100.0 * load_w / total_cycles);
-        // printf("Select & Accumulate    | %10lu | %6.2f%%\n", Select_and_Accumulate, 100.0 * Select_and_Accumulate / total_cycles);
         printf("Load W and Select      | %10lu | %6.2f%%\n", load_w_and_select, 100.0 * load_w_and_select / total_cycles);
         printf("Store O                | %10lu | %6.2f%%\n", store_o, 100.0 * store_o / total_cycles);
         printf("-----------------------|------------|-----------\n");
@@ -1387,23 +1285,5 @@ int main() {
     #endif
 
 
-    #if BAREMETAl_NEW == 1
-    // Τώρα οι φυσικές διευθύνσεις βρίσκονται στην phys_addrs
-    printf("Input physical address: 0x%llx\n", (unsigned long long)phys_addrs.input_phys_addr);
-    printf("Weights physical address: 0x%llx\n", (unsigned long long)phys_addrs.weights_phys_addr);
-    printf("Output physical address: 0x%llx\n", (unsigned long long)phys_addrs.output_phys_addr); 
-    
-    // ... εδώ θα έστελνες τις φυσικές διευθύνσεις στον accelerator μέσω της RoCC
-    // και θα τον εκκινούσες.
-
-    // Αποδέσμευση της μνήμης
-    munmap(dma_buffer, total_buffer_size);
-    close(accel_fd);
-    #endif
-
-
-
-
   return test_failed;
 }
-#define RF 8
