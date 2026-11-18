@@ -181,6 +181,12 @@ lazy val rocketchip = freshProject("rocketchip", rocketChipDir)
 lazy val rocketLibDeps = (rocketchip / Keys.libraryDependencies)
 
 
+// -- LUMIXED --
+lazy val lumixed = (project in file("generators/LUMIXED"))
+  .dependsOn(rocketchip)
+  .settings(libraryDependencies ++= rocketLibDeps.value)
+  .settings(commonSettings)
+
 // -- Chipyard-managed External Projects --
 
 lazy val testchipip = withInitCheck(freshProject("testchipip", file("generators/testchipip")), "testchipip")
@@ -195,7 +201,7 @@ lazy val chipyard = {
   val baseProjects: Seq[ProjectReference] =
     Seq(
       testchipip, rocketchip, boom, rocketchip_blocks, rocketchip_inclusive_cache,
-      icenet, tracegen,
+      icenet, tracegen, lumixed,
       constellation, barf, shuttle, rerocc,
     ).map(sbt.Project.projectToRef) ++
     (if (useChisel7) Seq() else Seq(sbt.Project.projectToRef(firrtl2_bridge))) ++
