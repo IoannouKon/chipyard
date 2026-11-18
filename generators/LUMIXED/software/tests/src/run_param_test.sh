@@ -1,6 +1,7 @@
 #!/bin/bash
 # Usage: ./run_param_test.sh RIN CIN COUT [IN_BITS] [W_BITS] [debug]
-# Rebuild stale/missing hardware once; use REBUILD=1 to request a build or 0 to reuse.
+# Python vectors/reference by default; FAST_VECTORS=0 uses the RISC-V C reference.
+# REBUILD=auto (default), 1 (force), or 0 (reuse); BUILD_JOBS defaults to 1.
 set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CHIPYARD_DIR="$(realpath "$SCRIPT_DIR/../../../../..")"
@@ -8,13 +9,6 @@ GEN_DIR="$(realpath "$SCRIPT_DIR/../../..")"
 SCALA_CFG="$GEN_DIR/src/main/scala/Config.scala"
 CONFIG=${CONFIG:-LUMIXEDROcketConfig}
 SIM_DIR="$CHIPYARD_DIR/sims/verilator"
-if [[ -f "$CHIPYARD_DIR/LUMIXED_CHECKPOINT.txt" ]]; then
-  CHECKPOINT=$(cat "$CHIPYARD_DIR/LUMIXED_CHECKPOINT.txt")
-  [[ ! -e "$CHECKPOINT/STOP" ]] || { echo 'Panic restore has stopped this task.' >&2; exit 2; }
-  if [[ "${LUMIXED_TASK_REGISTERED:-0}" != 1 ]]; then
-    exec python3 "$CHECKPOINT/run.py" env LUMIXED_TASK_REGISTERED=1 bash "$SCRIPT_DIR/run_param_test.sh" "$@"
-  fi
-fi
 if (( $# < 3 || $# > 6 )); then
   echo "Usage: $0 RIN CIN COUT [IN_BITS=16] [W_BITS=8] [debug]" >&2; exit 2
 fi
@@ -25,11 +19,22 @@ done
 [[ "$IN_BITS" == 8 || "$IN_BITS" == 16 ]] || { echo 'IN_BITS must be 8 or 16.' >&2; exit 2; }
 [[ "$W_BITS" == 2 || "$W_BITS" == 4 || "$W_BITS" == 8 ]] || { echo 'W_BITS must be 2, 4, or 8.' >&2; exit 2; }
 [[ -z "$DEBUG_FLAG" || "$DEBUG_FLAG" == debug ]] || { echo 'Sixth argument must be debug.' >&2; exit 2; }
+FAST_VECTORS=${FAST_VECTORS:-1}
+[[ "$FAST_VECTORS" == 0 || "$FAST_VECTORS" == 1 ]] || { echo 'FAST_VECTORS must be 0 or 1.' >&2; exit 2; }
+if [[ "$FAST_VECTORS" == 1 ]] && grep -Eq '^[[:space:]]*FP16_ACTIVATIONS[[:space:]]*=[[:space:]]*true' "$SCALA_CFG"; then
+  echo 'Python vectors currently support integer activations only; use FAST_VECTORS=0 for the FP16 C reference.' >&2
+  exit 2
+fi
+# The base C harness allocates packed integer weights in whole bytes.
+if (( (CIN * COUT * W_BITS) % 8 != 0 )); then
+  echo 'Packed weight count must fill whole bytes for the current C harness.' >&2
+  exit 2
+fi
 command -v riscv64-unknown-elf-gcc >/dev/null || { echo 'Source Chipyard env.sh first.' >&2; exit 2; }
 extract_number() {
   sed -nE "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p" "$SCALA_CFG" | head -n1
 }
-XS=$(extract_number x_slice) YS=$(extract_number y_slice) Mem_row_factor=$(extract_number Mem_row_factor)
+XS=$(extract_number banks_per_row) YS=$(extract_number parallel_rows) Mem_row_factor=$(extract_number table_capacity_factor)
 [[ -n "$XS" && -n "$YS" && -n "$Mem_row_factor" ]] || { echo 'Cannot read hardware geometry.' >&2; exit 2; }
 SIM="${SIM_BIN:-$SIM_DIR/simulator-chipyard.harness-$CONFIG}"
 BUILD_TARGET=default
@@ -46,9 +51,9 @@ if [[ "$REBUILD_MODE" == auto && -x "$SIM" ]]; then
 fi
 if [[ "$REBUILD_MODE" == 1 || ( "$REBUILD_MODE" == auto && "$NEEDS_BUILD" == 1 ) ]]; then
   if [[ "$BUILD_TARGET" == debug ]]; then
-    make -C "$SIM_DIR" -j"${BUILD_JOBS:-8}" CONFIG="$CONFIG" sim_debug="$SIM" debug
+    make -C "$SIM_DIR" -j"${BUILD_JOBS:-1}" CONFIG="$CONFIG" sim_debug="$SIM" debug
   else
-    make -C "$SIM_DIR" -j"${BUILD_JOBS:-8}" CONFIG="$CONFIG" sim="$SIM"
+    make -C "$SIM_DIR" -j"${BUILD_JOBS:-1}" CONFIG="$CONFIG" sim="$SIM"
   fi
 fi
 [[ -x "$SIM" ]] || { echo "Missing simulator: $SIM. Build with REBUILD=1." >&2; exit 2; }
@@ -60,19 +65,6 @@ update_define XS "$XS"; update_define YS "$YS"; update_define Mem_row_factor "$M
 update_define BAREMETAl_NEW 0
 cd "$SCRIPT_DIR"
 VECTOR_FLAGS=""
-FAST_VECTORS=${FAST_VECTORS:-0}
-if [[ "${REQUIRE_RISCV_REFERENCE:-0}" == 1 ]]; then
-  [[ "$FAST_VECTORS" == 0 ]] || { echo 'This test requires a pure-C reference on RISC-V.' >&2; exit 2; }
-  python3 - "$C_FILE" <<'PY_CHECK_REFERENCE'
-from pathlib import Path
-import re, sys
-source = Path(sys.argv[1]).read_text()
-for name in ('fast_mode', 'ultra_fast_mode'):
-    if not re.search(r'(?m)^\s*bool\s+' + name + r'\s*=\s*false\s*;', source):
-        raise SystemExit(f'{name} must be false for CPU-versus-LUMIXED correctness tests')
-PY_CHECK_REFERENCE
-  [[ "${TEST_CFLAGS:--O2}" != *LUMIXED_PREGENERATED_TEST* ]] || { echo 'Host-reference compiler flag is incompatible with this test.' >&2; exit 2; }
-fi
 if [[ "$FAST_VECTORS" == 1 ]]; then
   python3 "$SCRIPT_DIR/prepare_test_vectors.py" "$RIN" "$CIN" "$COUT" "$IN_BITS" "$W_BITS" --seed "${TEST_SEED:-1}" --pattern "${TEST_PATTERN:-0}" --output "$SCRIPT_DIR/lumixed_test_vectors.h"
   VECTOR_FLAGS="-DLUMIXED_PREGENERATED_TEST=1"

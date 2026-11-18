@@ -1,12 +1,4 @@
-
-# riscv64-unknown-elf-gcc "${TEST_FLAGS[@]}" -fno-common -fno-builtin-printf -specs=htif_nano.specs -c Linear-sw.c
-# riscv64-unknown-elf-gcc -static -specs=htif_nano.specs Linear-sw.o -o Linear-sw.riscv 
-
-
-# riscv64-unknown-linux-gnu-gcc -c Linear-sw.c -o executable.o
-# riscv64-unknown-linux-gnu-gcc -static executable.o -o Linear-sw.riscv
-
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================
 # Build script for Linear-sw.c (RISC-V)
 # Usage:
@@ -14,7 +6,9 @@
 #   ./build.sh linux       -> build for Linux RISC-V
 # =============================================
 
-set -e  # stop on first error
+set -euo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 SRC="Linear-sw.c"
 OUT="Linear-sw.riscv"
 
@@ -29,7 +23,7 @@ read -r -a TEST_FLAGS <<< "${TEST_CFLAGS:--O2}"
 
 # Match the software datatype to the elaboration-time hardware format. A copied
 # test harness can select explicitly with -DLUMIXED_FP16_ACTIVATIONS=0 or 1.
-CONFIG_SOURCE="${LUMIXED_CONFIG_PATH:-$(dirname -- "${BASH_SOURCE[0]}")/../../../src/main/scala/Config.scala}"
+CONFIG_SOURCE="${LUMIXED_CONFIG_PATH:-$SCRIPT_DIR/../../../src/main/scala/Config.scala}"
 if [ -f "$CONFIG_SOURCE" ]; then
   fp16_mode=$(sed -n 's/^[[:space:]]*FP16_ACTIVATIONS[[:space:]]*=[[:space:]]*\(true\|false\).*/\1/p' "$CONFIG_SOURCE")
   case "$fp16_mode" in
@@ -78,19 +72,19 @@ if [ -f "$CONFIG_SOURCE" ]; then
 fi
 
 if [ "$MODE" = "baremetal" ]; then
-  echo "🔧 Building bare-metal version..."
+  echo "Building bare-metal version..."
   riscv64-unknown-elf-gcc "${TEST_FLAGS[@]}" -fno-common -fno-builtin-printf -specs=htif_nano.specs -c "$SRC" -o Linear-sw.o
   riscv64-unknown-elf-gcc -static -specs=htif_nano.specs Linear-sw.o -o "$OUT"
-  echo "✅ Bare-metal build complete: $OUT"
+  echo "Bare-metal build complete: $OUT"
 
 elif [ "$MODE" = "linux" ]; then
-  echo "🐧 Building Linux version..."
+  echo "Building Linux version..."
   riscv64-unknown-linux-gnu-gcc "${TEST_FLAGS[@]}" -c "$SRC" -o executable.o
   riscv64-unknown-linux-gnu-gcc -static executable.o -o "$OUT"
-  echo "✅ Linux build complete: $OUT"
+  echo "Linux build complete: $OUT"
 
 else
-  echo "❌ Unknown mode: $MODE"
+  echo "Unknown mode: $MODE"
   echo "Usage: $0 [baremetal|linux]"
   exit 1
 fi
