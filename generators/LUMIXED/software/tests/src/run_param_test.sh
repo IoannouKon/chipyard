@@ -71,7 +71,7 @@ FAST_VECTORS=${FAST_VECTORS:-1}
 }
 
 # Python supports integer, FP16, and both finite group-scaled FP16 modes.
-# Packed W2/W4 tails are allocated with ceil-byte capacity in Linear-sw.c.
+# Packed W2/W4 tails are allocated with ceil-byte capacity in lumixed_matmul_test.c.
 command -v riscv64-unknown-elf-gcc >/dev/null || {
   echo 'Source Chipyard env.sh first.' >&2
   exit 2
@@ -84,11 +84,11 @@ extract_number() {
   sed -nE "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*([0-9]+).*/\1/p" "$SCALA_CFG" | head -n1
 }
 
-XS=$(extract_number banks_per_row)
-YS=$(extract_number parallel_rows)
-Mem_row_factor=$(extract_number table_capacity_factor)
+banks_per_row=$(extract_number banks_per_row)
+parallel_rows=$(extract_number parallel_rows)
+table_capacity_factor=$(extract_number table_capacity_factor)
 
-[[ -n "$XS" && -n "$YS" && -n "$Mem_row_factor" ]] || {
+[[ -n "$banks_per_row" && -n "$parallel_rows" && -n "$table_capacity_factor" ]] || {
   echo 'Cannot read hardware geometry.' >&2
   exit 2
 }
@@ -192,9 +192,9 @@ fi
 }
 
 # -----------------------------------------------------------------------------
-# 6. Update Linear-sw.c dimensions, precisions, and hardware geometry
+# 6. Update lumixed_matmul_test.c dimensions, precisions, and hardware geometry
 # -----------------------------------------------------------------------------
-C_FILE="$SCRIPT_DIR/Linear-sw.c"
+C_FILE="$SCRIPT_DIR/lumixed_matmul_test.c"
 
 update_define() {
   sed -i -E "s/^#define[[:space:]]+$1[[:space:]].*/#define $1 $2/" "$C_FILE"
@@ -205,9 +205,9 @@ update_define CIN_MAX "$CIN"
 update_define COUT_MAX "$COUT"
 update_define IN_BITS "$IN_BITS"
 update_define W_BITS "$W_BITS"
-update_define XS "$XS"
-update_define YS "$YS"
-update_define Mem_row_factor "$Mem_row_factor"
+update_define banks_per_row "$banks_per_row"
+update_define parallel_rows "$parallel_rows"
+update_define table_capacity_factor "$table_capacity_factor"
 
 
 # -----------------------------------------------------------------------------
@@ -244,15 +244,15 @@ if [[ "${LUMIXED_LOG_FLAT:-0}" == 1 ]]; then
   SUB_LOG_DIR="$LOG_BASE"
   LOG_FILE="$SUB_LOG_DIR/X${RIN}x${CIN}_W${CIN}x${COUT}_A${IN_BITS}_W${W_BITS}_FP${FP_MODE}_GS${GROUP_SCALE_MODE}_G${GROUP_SIZE}.log"
 else
-  SUB_LOG_DIR="$LOG_BASE/XS=${XS}_YS=${YS}_Mem_row_factor=${Mem_row_factor}"
+  SUB_LOG_DIR="$LOG_BASE/banks_per_row=${banks_per_row}_parallel_rows=${parallel_rows}_table_capacity_factor=${table_capacity_factor}"
   LOG_FILE="$SUB_LOG_DIR/RIN=${RIN}_CIN=${CIN}_COUT=${COUT}_INBITS=${IN_BITS}_WBITS=${W_BITS}_FP16=${FP_MODE}_GROUPMODE=${GROUP_SCALE_MODE}_G=${GROUP_SIZE}.txt"
 fi
 
 mkdir -p "$SUB_LOG_DIR"
 
 {
-  printf 'CONFIG=%s XS=%s YS=%s RF=%s RIN=%s CIN=%s COUT=%s IN=%s W=%s\n' \
-    "$CONFIG" "$XS" "$YS" "$Mem_row_factor" "$RIN" "$CIN" "$COUT" "$IN_BITS" "$W_BITS"
+  printf 'CONFIG=%s banks_per_row=%s parallel_rows=%s table_capacity_factor=%s RIN=%s CIN=%s COUT=%s IN=%s W=%s\n' \
+    "$CONFIG" "$banks_per_row" "$parallel_rows" "$table_capacity_factor" "$RIN" "$CIN" "$COUT" "$IN_BITS" "$W_BITS"
   printf 'TEST_SEED=%s QUIET_TEST=%s TEST_PATTERN=%s\n' \
     "${TEST_SEED:-1}" "${QUIET_TEST:-1}" "${TEST_PATTERN:-0}"
   printf 'FAST_VECTORS=%s\n' "$FAST_VECTORS"
@@ -278,7 +278,7 @@ mkdir -p "$SUB_LOG_DIR"
 ARGS=(
   +permissive
   +max-cycles="${TIMEOUT_CYCLES:-100000000}"
-  +loadmem="$SCRIPT_DIR/Linear-sw.riscv"
+  +loadmem="$SCRIPT_DIR/lumixed_matmul_test.riscv"
 )
 
 # Preserve the original memory model unless DRAMSIM=1 is selected.
@@ -297,7 +297,7 @@ if [[ "$DEBUG_FLAG" == debug ]]; then
   fi
 fi
 
-ARGS+=(+permissive-off "$SCRIPT_DIR/Linear-sw.riscv")
+ARGS+=(+permissive-off "$SCRIPT_DIR/lumixed_matmul_test.riscv")
 
 # -----------------------------------------------------------------------------
 # 10. Run Verilator and preserve both simulator and logging exit statuses

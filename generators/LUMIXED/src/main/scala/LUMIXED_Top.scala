@@ -80,16 +80,24 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val rs1 = cmd.bits.rs1 // First RoCC source operand.
   val rs2 = cmd.bits.rs2 // Second RoCC source operand.
 
-  //Custom Instructions
-  val mode_0         = funct === 0.U // X base address in rs1.
-  val mode_1         = funct === 1.U // W base address in rs1; packed slice settings in rs2.
-  val mode_2         = funct === 2.U // O base address in rs1; output-column count in rs2.
-  val mode_3         = funct === 3.U // K dimension in rs1; active row-group setting in rs2.
-  val mode_5         = funct === 5.U // Row-group loop count in rs1; total input rows in rs2.
-  val mode_6         = funct === 6.U // Completion acknowledgement in sDELAY.
-  val mode_8         = funct === 8.U // Packed input and weight bit widths in rs1; output width is fixed by params.
-  val mode_9         = funct === 9.U // Performance-counter readback.
-  val mode_10        = funct === 10.U // Start the matmul.
+  // RoCC ABI v2: six explicit command IDs; configuration words may arrive
+  // in any order. START seals a complete configuration and initializes the run.
+  val setXW = funct === 0.U
+  val setOutput = funct === 1.U
+  val setShape = funct === 2.U
+  val setExecution = funct === 3.U
+  val startMatmul = funct === 4.U
+  val control = funct === 5.U
+  val waitDone = control && rs1 === 0.U
+  val readCounter = control && rs1 === 1.U
+  val configured = RegInit(0.U(4.W))
+  val configuredSlice = RegInit(0.U(16.W))
+  val configuredWeightSlice = RegInit(0.U(16.W))
+  val configuredDmaLimit = RegInit(0.U(16.W))
+  val counterResponses = Module(new Queue(chiselTypeOf(io.resp.bits), 1))
+  io.resp <> counterResponses.io.deq
+  counterResponses.io.enq.valid := false.B
+  counterResponses.io.enq.bits := 0.U.asTypeOf(counterResponses.io.enq.bits)
 
   // === Memory geometry ===
   //SyncMem compile parameters
@@ -698,19 +706,102 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   //////////////////////////////////////////// FSM Implementation ////////////////////////////////////////////////////////
 
   // Define states for the FSM
-  val sIdle :: sLoadX :: sGenerateRegFiles :: sLoadW_and_sSelectAndAccumulate :: sStoreOutput :: sDELAY :: sLoadGroupScales :: Nil = Enum(7)
+  val sIdle :: sInitialize :: sLoadX :: sGenerateRegFiles :: sLoadW_and_sSelectAndAccumulate :: sStoreOutput :: sDELAY :: sLoadGroupScales :: Nil = Enum(8)
   val state = RegInit(sIdle)
 
   // Accept commands in sIdle; sDELAY separately accepts completion acknowledgement.
   io.busy     := (state =/= sIdle)
-  cmd.ready   := (state === sIdle)
+  cmd.ready   := (state === sIdle) && (!readCounter || counterResponses.io.enq.ready)
 
   switch(state) {
     // === sIdle: accept configuration and start a matmul ===
     is(sIdle) {
-      when(cmd.fire && (mode_0)) {
-        adr_X         := rs1
-
+      when(cmd.fire) {
+        assert(funct <= 5.U, "Unsupported RoCC ABI v2 command")
+        when(control) {
+          assert(rs1 <= 1.U, "Control selector must be wait=0 or read=1")
+          assert(rs2 < 6.U || waitDone, "Counter index must be 0..5")
+          assert(cmd.bits.inst.xd === readCounter, "Only counter reads return rd")
+        }.otherwise {
+          assert(!cmd.bits.inst.xd, "Configuration/start commands do not return rd")
+        }
+      }
+      when(cmd.fire && setXW) {
+        adr_X := rs1
+        adr_W := rs2
+        configured := configured | 1.U
+      }
+      when(cmd.fire && setOutput) {
+        assert(rs2 > 0.U && rs2 <= params.Cout.U, "N exceeds output capacity")
+        adr_O := rs1
+        cout_reg := rs2
+        configured := configured | 2.U
+      }
+      when(cmd.fire && setShape) {
+        val k = rs1(31, 0)
+        val rows = rs1(63, 32)
+        val parallel = rs2(31, 0)
+        val loops = rs2(63, 32)
+        assert(k > 0.U && k <= params.Cin.U, "K exceeds input capacity")
+        assert(rows > 0.U && rows <= params.Rin.U, "R exceeds row capacity")
+        assert(parallel > 0.U && parallel <= params.parallel_rows.U, "Invalid parallel rows")
+        if (params.FLEXIBLE_BANK_GROUPING) {
+          assert(groupingRows.map(y => parallel === y.U).reduce(_ || _), "Unsupported bank grouping")
+        } else {
+          assert(parallel === params.parallel_rows.U, "Fixed-bank build requires configured parallel_rows")
+        }
+        assert(loops === (rows +& parallel - 1.U) / parallel, "Row-group count must equal ceil(R/parallel)")
+        cin_reg := k
+        rin_reg := rows
+        y_slice_Reg := parallel
+        LOOPS := loops
+        configured := configured | 4.U
+      }
+      when(cmd.fire && setExecution) {
+        val inBits = rs1(53, 48)
+        val wBits = rs1(59, 54)
+        assert(rs1(63, 60) === 0.U, "Execution reserved bits must be zero")
+        assert(rs1(15, 0) > 0.U && rs1(31, 16) > 0.U && rs1(47, 32) > 0.U,
+          "Slice sizes and DMA limit must be nonzero")
+        assert(wBits === 2.U || wBits === 4.U || wBits === 8.U, "Signed weights must be W2/W4/W8")
+        if (fpGeometry) {
+          assert(inBits === params.FP_BITS.U, "Activation precision differs from hardware")
+        } else {
+          assert(Seq(2,4,8,16).map(n => inBits === n.U).reduce(_ || _) && inBits <= params.XBitWidth.U,
+            "Unsupported integer activation width")
+          input_bits := inBits
+        }
+        weight_bits := wBits
+        configuredSlice := rs1(15, 0)
+        configuredWeightSlice := rs1(31, 16)
+        configuredDmaLimit := rs1(47, 32)
+        if (groupScaling) {
+          assert(rs2 === 32.U || rs2 === 64.U || rs2 === 128.U, "Group size must be 32/64/128")
+          quantGroupShift.get := Mux(rs2 === 32.U, 5.U, Mux(rs2 === 64.U, 6.U, 7.U))
+        } else {
+          assert(rs2 === 0.U, "Group scaling is disabled in this build")
+        }
+        configured := configured | 8.U
+      }
+      when(cmd.fire && startMatmul) {
+        assert(configured.andR, "START requires all four configuration commands")
+        assert(rs2 === 0.U, "START rs2 is reserved")
+        configured := 0.U
+        state := sInitialize
+        if (groupScaling) {
+          assert(rs1(2, 0) === 0.U, "Scale base must be 8-byte aligned")
+          groupScaleBase.get := rs1
+          assert(groupEngine.get.io.empty && !groupWritePending, "Previous group pipeline not drained")
+          scaleIssued.get := 0.U
+          scaleReturned.get := 0.U
+          windowRetired.get := false.B
+        }
+        PC_loadX := 0.U
+        PC_Generate := 0.U
+        PC_loadW := 0.U
+        PC_Select := 0.U
+        PC_storeO := 0.U
+        PC_loadW_and_Select := 0.U
         //DMA init
         dma_send      := true.B
         dma_resp      := true.B
@@ -743,13 +834,12 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         if (!fpGeometry) elemsPerChunk_in := params.DMA_bits.U / input_bits
         elemsPerChunk_w  :=   params.DMA_bits.U  / weight_bits
       }
-
-      when(cmd.fire && (mode_1)) {
-        adr_W     := rs1
-
-        val scaledSlice        = rs2(15, 0)   // 16 bits
-        x_slice_weights_reg   := rs2(31, 16)  // 16 bits
-        dma_limit             := rs2(47, 32)  // 16 bits
+    }
+    // Derived values use stored settings, never partially updated command data.
+    is(sInitialize) {
+        val scaledSlice        = configuredSlice   // 16 bits
+        x_slice_weights_reg   := configuredWeightSlice  // 16 bits
+        dma_limit             := configuredDmaLimit  // 16 bits
 
         clmp := scaledSlice
         val clamped = if (params.GROUP_SCALE_ALIGNED) groupWindow(scaledSlice, 0.U)
@@ -799,64 +889,9 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         chunkInfoModule_D.io.max_bits         := params.XBitWidth.U
         elements_to_read_temp := chunkInfoModule_D.io.elements_to_read_temp
 
-      }
-
-      when(cmd.fire && (mode_2)) {
-        adr_O    := rs1
-        cout_reg := rs2
-      }
-
-      when(cmd.fire && (mode_3)) {
-        if (params.FLEXIBLE_BANK_GROUPING) {
-          // Reject unsupported splits instead of silently misrouting data.
-          assert(groupingRows.map(y => rs2 === y.U).reduce(_ || _), "Unsupported bank grouping")
-        }
-        y_slice_Reg := rs2
-        cin_reg := rs1
-      }
-
-      when(cmd.fire && (mode_5)) {
-        LOOPS   := rs1
-        rin_reg := rs2
-      }
-
-
-      when(cmd.fire && (mode_8)) {
-        if (!fpGeometry) input_bits := rs1(5,0)
-        weight_bits  := rs1(11,6)
-
-        if(params.DEBUG){
-          PC_loadX    := 0.U
-          PC_Generate := 0.U
-          PC_loadW    := 0.U
-          PC_Select   := 0.U
-          PC_storeO   := 0.U
-        }
-
-      }
-
-      if (groupScaling) {
-        when(cmd.fire && funct === 11.U) {
-          assert(rs1(2, 0) === 0.U, "Scale base must be 8-byte aligned")
-          groupScaleBase.get := rs1
-        }
-        when(cmd.fire && funct === 12.U) {
-          assert(rs1 === 32.U || rs1 === 64.U || rs1 === 128.U, "Group size must be 32/64/128")
-          quantGroupShift.get := Mux(rs1 === 32.U, 5.U, Mux(rs1 === 64.U, 6.U, 7.U))
-        }
-      }
-      when(cmd.fire && mode_10) {
-        state := (if (groupScaling) sLoadGroupScales else sLoadX)
-        if (groupScaling) {
-          assert(groupEngine.get.io.empty && !groupWritePending, "Previous group pipeline not drained")
-          assert(weight_bits === 2.U || weight_bits === 4.U || weight_bits === 8.U, "Group scaling supports signed W2/W4/W8")
-          scaleIssued.get := 0.U; scaleReturned.get := 0.U
-          windowRetired.get := false.B
-        }
-        valid_inputs := 0.U
-      }
-
+      state := (if (groupScaling) sLoadGroupScales else sLoadX)
     }
+    // === Group-scale DMA preload ===
     is(sLoadGroupScales) {
       if (groupScaling) {
         if (params.DEBUG) PC_loadX := PC_loadX + 1.U // Includes initial scale preload.
@@ -1908,8 +1943,8 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
     // === sDELAY: wait for DMA drain and completion acknowledgement ===
     is(sDELAY) {
       io.busy     := !dma.io.empty
-      cmd.ready   := dma.io.empty
-      when(cmd.fire && (mode_6)) {
+      cmd.ready   := dma.io.empty && waitDone
+      when(cmd.fire && waitDone) {
         state := sIdle
       }
 
@@ -1917,28 +1952,15 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
 
   }
 
-  // === Performance-counter readback (outside the state switch) ===
-  val counter_p = RegInit(0.U(5.W)) // Declare outside to preserve value
-
-  if(params.DEBUG) {
-    when(cmd.fire && (mode_9)) {
-
-      io.resp.valid := cmd.valid
-      io.resp.bits.rd := cmd.bits.inst.rd
-
-      val mapping = Seq(
-        0.U -> PC_loadX,
-        1.U -> PC_Generate,
-        2.U -> PC_loadW,
-        3.U -> PC_Select,
-        4.U -> PC_storeO,
-        5.U -> PC_loadW_and_Select
-      )
-
-      io.resp.bits.data := MuxLookup(counter_p, 0.U)(mapping)
-
-      counter_p := counter_p + 1.U
-    }
+  // Explicit counter selection; response remains valid under backpressure.
+  when(state === sIdle && cmd.valid && readCounter) {
+    counterResponses.io.enq.valid := true.B
+    counterResponses.io.enq.bits.rd := cmd.bits.inst.rd
+    val mapping = Seq(
+      0.U -> PC_loadX, 1.U -> PC_Generate, 2.U -> PC_loadW,
+      3.U -> PC_Select, 4.U -> PC_storeO, 5.U -> PC_loadW_and_Select)
+    counterResponses.io.enq.bits.data :=
+      (if (params.DEBUG) MuxLookup(rs2, 0.U(64.W))(mapping) else 0.U(64.W))
   }
 
   // === Background weight prefetch (overlaps generation and selection) ===

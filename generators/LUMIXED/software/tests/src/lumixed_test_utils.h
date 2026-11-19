@@ -1,107 +1,19 @@
-// Bare-metal LUMIXED matrix-multiplication test.
+#ifndef LUMIXED_TEST_UTILS_H
+#define LUMIXED_TEST_UTILS_H
+
 #include <stdint.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
 #include <math.h>
-#include "compiler.h"
-#include "rocc.h"
 
-// ============================================================================
-// 1. TEST PARAMETERS: element precision and matrix dimensions
-// ============================================================================
-#define IN_BITS 32
-#define W_BITS 2
-#define RIN_MAX 2
-#define CIN_MAX 256
-#define COUT_MAX 4
-#define FILTERS_MAX         1  // Number of filters.
+// Test-only implementation for one translation unit. Include after defining
+// test format/geometry macros, scalar types, runtime parameters and LUMIXEDParams,
+// and after including lumixed_api.h. Configuration remains in the test .c file.
 
-// ============================================================================
-// 2. HARDWARE GEOMETRY: must match Config.scala
-// ============================================================================
-#define XS 4
-#define YS 1
-#define Mem_row_factor 4
-
-// ============================================================================
-// 3. EXECUTION, OUTPUT AND DIAGNOSTIC OPTIONS
-// ============================================================================
-#define Debug               0  // Print input and output matrices.
-#define PC_COUNTERS         1  // Print accelerator performance counters.
-#define FPU                 0  // Whether the Rocket core supports an FPU.
-
-// Build-time activation mode; raw IEEE bits transfer without CPU conversion.
-#ifndef LUMIXED_FP_ACTIVATIONS
-#define LUMIXED_FP_ACTIVATIONS 0
-#endif
-#ifndef LUMIXED_FP_BITS
-#define LUMIXED_FP_BITS 16
-#endif
-
-// Allow runtime bank regrouping when implemented by the hardware.
-#ifndef LUMIXED_FLEXIBLE_BANK_GROUPING
-#define LUMIXED_FLEXIBLE_BANK_GROUPING 0
-#endif
-
-// Enable the group-scale configuration interface when supported by hardware.
-#ifndef LUMIXED_GROUP_SCALE_MODE
-#define LUMIXED_GROUP_SCALE_MODE 0
-#endif
-
-// Deterministic test inputs and reference generation.
-#ifndef LUMIXED_TEST_SEED
-#define LUMIXED_TEST_SEED 1
-#endif
-#ifndef LUMIXED_TEST_PATTERN
-#define LUMIXED_TEST_PATTERN 0
-#endif
-
-// ============================================================================
-// 4. DERIVED BUFFER SIZES: calculated from the parameters above
-// ============================================================================
-#define INPUT_SIZE (RIN_MAX * CIN_MAX)
-#define WEIGHT_SIZE (FILTERS_MAX * CIN_MAX * COUT_MAX)
-
-#if IN_BITS == 32 || IN_BITS == 16 || IN_BITS == 8
-    #define MAX_INPUT_SIZE (RIN_MAX * CIN_MAX)
-#elif IN_BITS == 4
-    #define MAX_INPUT_SIZE ((RIN_MAX * CIN_MAX) / 2)
-#elif IN_BITS == 2
-    #define MAX_INPUT_SIZE ((RIN_MAX * CIN_MAX) / 4)
-#endif
-
-#if LUMIXED_FP_ACTIVATIONS
-    #define MAX_WEIGHT_SIZE ((CIN_MAX * COUT_MAX * W_BITS + 7) / 8)
-#elif W_BITS == 8
-    #define MAX_WEIGHT_SIZE (CIN_MAX * COUT_MAX)
-#elif W_BITS == 4
-    #define MAX_WEIGHT_SIZE ((CIN_MAX * COUT_MAX + 1) / 2)
-#elif W_BITS == 2
-    #define MAX_WEIGHT_SIZE ((CIN_MAX * COUT_MAX + 3) / 4)
-#endif
-
-// ============================================================================
-// 5. COMPILE-TIME FORMAT CHECKS
-// ============================================================================
-#if LUMIXED_FP_ACTIVATIONS && (IN_BITS != LUMIXED_FP_BITS || (W_BITS != 8 && W_BITS != 4 && W_BITS != 2))
-#error "FP activations require IN_BITS=FP_BITS and integer W_BITS=8, 4 or 2"
-#endif
-#if LUMIXED_FP_ACTIVATIONS && IN_BITS == 32 && !defined(LUMIXED_PREGENERATED_TEST)
-#error "FP32 exact-reference tests require FAST_VECTORS=1 (Python arbitrary-precision reference)"
-#endif
-#if LUMIXED_GROUP_SCALE_MODE && !LUMIXED_FP_ACTIVATIONS
-#error "Group scaling requires FP16 activations"
-#endif
-#if LUMIXED_GROUP_SCALE_MODE && !defined(LUMIXED_PREGENERATED_TEST)
-#error "Group-scaling test requires a pregenerated Python reference and scales"
-#endif
-
-// The printf wrapper follows its function definition so it cannot recurse.
+// Optional quiet logging. The printf alias is selected by the test .c file.
 #if defined(LUMIXED_QUIET_TEST) && LUMIXED_QUIET_TEST
-#include <stdarg.h>
 static int lumixed_test_printf(const char *fmt, ...) {
     if (strncmp(fmt, "PASS", 4) && strncmp(fmt, "FAIL", 4) &&
         strncmp(fmt, "Exact matches:", 14) && strncmp(fmt, "Mismatch", 8) &&
@@ -112,102 +24,9 @@ static int lumixed_test_printf(const char *fmt, ...) {
     va_end(args);
     return result;
 }
-#define printf lumixed_test_printf
 #endif
 
-// ============================================================================
-// 6. RUNTIME TEST/HARDWARE CONFIGURATION
-// ============================================================================
-bool fast_mode = false;       // Skip software/hardware result comparison.
-bool ultra_fast_mode = false; // Skip random test-vector generation.
-
-// Runtime bank geometry (initialized from the compile-time settings).
-int x_slice_max = XS;
-int y_slice = YS;
-
-// Call while idle, before preload_hw(). XS*YS is the physical lane count;
-// YS is the maximum supported grouping, not the number of rows in a tail.
-// The selected grouping reaches RTL through the existing set_rin command.
-// A model-generated schedule supplies rows; no simulator runs on the CPU.
-static inline int lumixed_select_bank_grouping(unsigned rows) {
-    if (!rows || (rows & (rows - 1)) || rows > YS) return -1;
-    if (!LUMIXED_FLEXIBLE_BANK_GROUPING && rows != YS) return -1;
-    y_slice = (int)rows;
-    x_slice_max = (XS * YS) / (int)rows;
-    return 0;
-}
-
-// Scales are contiguous FP16 bits s[ceil(Cin/G)][Cout], group-major.
-// Configure before preload_hw; no scale computation or matmul runs on the CPU.
-static inline int lumixed_set_group_scales(const uint16_t *scales, unsigned group) {
-    if (!LUMIXED_GROUP_SCALE_MODE || !scales || ((uintptr_t)scales & 7) ||
-        (group != 32 && group != 64 && group != 128)) return -1;
-    asm volatile ("fence rw, rw" ::: "memory");
-    ROCC_INSTRUCTION_SS(0, (uint64_t)scales, 0, 11);
-    ROCC_INSTRUCTION_SS(0, group, 0, 12);
-    return 0;
-}
-
-int ACTIVATION_MAX_BITS = LUMIXED_FP_ACTIVATIONS ? LUMIXED_FP_BITS : 16;
-int WEIGHTS_MAX_BITS    = 8;
-int RF = Mem_row_factor; 
-
-bool cahce4_8 = false;  // Enable the legacy 4-bit input / 8-bit weight path.
-
-// Matrix dimension limits used for test buffers.
-int Rin_max  = RIN_MAX;
-int Cin_max  = CIN_MAX;
-int Cout_max = COUT_MAX;
-
-
-////////////////////////////////////////////////////////////////////////////
-
-#if LUMIXED_FP_ACTIVATIONS && LUMIXED_FP_BITS == 32
-    typedef uint32_t input_t; // Raw IEEE binary32 activation bits.
-    static const int max_in = 0;
-    static const int min_in = 0;
-#elif LUMIXED_FP_ACTIVATIONS
-    typedef uint16_t input_t; // Raw IEEE binary16 bits, never cast to int16_t.
-    static const int max_in = 65535;
-    static const int min_in = 0;
-#elif IN_BITS == 16
-    typedef int16_t input_t;
-    static const int max_in = 32767;
-    static const int min_in = -32768;
-#elif IN_BITS == 8    
-    typedef int8_t input_t;
-    static const int max_in = 127;
-    static const int min_in = -128;
-#elif IN_BITS == 4    
-    typedef int8_t input_t;
-    static const int max_in = 7;
-    static const int min_in =  -8;    
-#elif IN_BITS == 2    
-    typedef int8_t input_t;
-    static const int max_in = 1;
-    static const int min_in = -2;    
-#endif    
-
-#if W_BITS == 8
-    typedef int8_t weight_t;
-    static const int max_w = 127; //127;
-    static const int min_w = -128; //128; 
-#elif W_BITS == 4    
-    typedef int8_t weight_t;
-    static const int max_w = 7;
-    static const int min_w = -8; 
-#elif W_BITS == 2    
-    typedef int8_t weight_t;
-    static const int max_w = 1;
-    static const int min_w = -2; 
-#endif    
-
-#if LUMIXED_FP_ACTIVATIONS
-    typedef uint32_t output_t; // Raw IEEE binary32 bits; works without a CPU FPU.
-#else
-    typedef int32_t output_t;  
-#endif    
-
+// Exact software reference for unscaled FP16 activations.
 #if LUMIXED_FP_ACTIVATIONS && LUMIXED_FP_BITS == 16
 // Exact sum in units of 2^-24, rounded once to binary32, nearest/ties-to-even.
 // Cin <= 65536 and signed W8/W4/W2 fit this signed 64-bit software reference.
@@ -261,119 +80,11 @@ static uint32_t lumixed_fp16_dot(const input_t *x, const weight_t *w, int n, int
 }
 #endif
 
-
-#ifdef LUMIXED_PREGENERATED_TEST
-#include "lumixed_test_vectors.h"
-#endif
-
-typedef struct {
-  input_t *q; // quantized values
-} QuantizedTensor_input;
-
-typedef struct {
-  weight_t *q; // quantized values
-} QuantizedTensor_weight;
-
-
+// Test delay, matrix display, data generation and result comparison.
 void delay(int milli_seconds)
 {
     clock_t start_time = clock();
     while (clock() < start_time + milli_seconds);
-}
-
-/////////////////////////////////////////////////// CUSTOM INSTRUCTIONS ///////////////////////////////////////////////////////////// 
-
-static inline void load_x(void *ptr,uint64_t len)
-{   
-	asm volatile ("fence" ::: "memory"); 
-	ROCC_INSTRUCTION_SS(0, (uint64_t) ptr,len, 0);
-}
-
-static inline void load_w(void *ptr,int x_slice_input_reg , int x_slice_weights_reg, int dma_limit) 
-{
-	asm volatile ("fence" ::: "memory");
-    uint64_t combined = 0;
-
-    combined |= ((uint64_t)((uint16_t)x_slice_input_reg)) << 0;
-    combined |= ((uint64_t)((uint16_t)x_slice_weights_reg)) << 16;
-    combined |= ((uint64_t)((uint16_t)dma_limit)) << 32;
-	ROCC_INSTRUCTION_SS(0, (uint64_t) ptr, combined, 1);
-}
-
-static inline void load_o(void *ptr,uint64_t len) 
-{  
-	asm volatile ("fence" ::: "memory");
-	ROCC_INSTRUCTION_SS(0, (uint64_t) ptr, len, 2);
- } 
-
- static inline void set_rin(uint64_t parallel_rin, uint64_t Cin ) 
-{
-	asm volatile ("fence" ::: "memory");
-	ROCC_INSTRUCTION_SS(0, Cin, parallel_rin, 3);
- } 
-
-
-static inline void set_loops(uint64_t loops,uint64_t Rin) 
-{
-	asm volatile ("fence" ::: "memory");
-	ROCC_INSTRUCTION_SS(0, loops, Rin, 5);
-} 
-
-static inline void stop_busy() 
-{
-	asm volatile ("fence" ::: "memory");
-	ROCC_INSTRUCTION_SS(0, 0, 0, 6);
-} 
-
-
-static inline void set_bitwidths(int  input_bits,int weight_bits,int output_bits) 
-
-{
-	asm volatile ("fence" ::: "memory");
-    uint64_t result = 0;
-    result |= ((uint64_t)(output_bits & 0x3F)) << 12;
-    result |= ((uint64_t)(weight_bits & 0x3F)) << 6;
-    result |= ((uint64_t)(input_bits & 0x3F));
-	ROCC_INSTRUCTION_SS(0, (uint64_t)result, 0, 8);
-} 
-
-static inline unsigned long read_rd() 
-
-{
-	asm volatile ("fence" ::: "memory");
-    uint64_t result = 0;
-	unsigned long value;
-    ROCC_INSTRUCTION_D(0,value,9); //CUSTOM_READ_OUTPUT_FUNCT
-	return value; 
-}
-
-static inline void start_calculation() 
-{
-	asm volatile ("fence" ::: "memory");
-	ROCC_INSTRUCTION_SS(0, 0, 0, 10);
-} 
-
-
-/////////////////////////////////////////////////// CUSTOM INSTRUCTIONS /////////////////////////////////////////////////////////////
-
-
-typedef struct {
-    int Rin;          
-    int Cin;          
-    int Cout;        
-    int XBitWidth;    
-    int WBitWidth;   
-    int x_slice;      
-    int num_filters; 
-    int parallel_rin; 
-
-} LUMIXEDParams;
-
-static inline long rdcycle(void)
-{
-	long cycle;
-	asm volatile ("csrr %[cycle], cycle" : [cycle] "=r" (cycle));
-	return cycle;
 }
 
 void printMatrices_in(LUMIXEDParams p, input_t *inputMatrix) {
@@ -383,22 +94,28 @@ void printMatrices_in(LUMIXEDParams p, input_t *inputMatrix) {
         for (int i = 0; i < p.Rin; i++) {
             for (int j = 0; j < p.Cin; j++) {
                 int index = i * p.Cin + j;
+                #if LUMIXED_FP_ACTIVATIONS && LUMIXED_FP_BITS == 32
+                printf("0x%08x ", (unsigned)inputMatrix[index]);
+                #elif LUMIXED_FP_ACTIVATIONS
+                printf("0x%04x ", (unsigned)inputMatrix[index]);
+                #else
                 printf("%d ", inputMatrix[index]);
+                #endif
             }
             printf("\n");  // Newline after each row
         }
-    #elif IN_BITS == 4     
+    #elif IN_BITS == 4
         int total_elements = p.Rin * p.Cin;
         for (int i = 0; i < total_elements / 2; i++) {
             int8_t packed = inputMatrix[i];  // Contains two packed INT4 values.
-            
+
             int8_t high = (packed >> 4) & 0x0F;
             int8_t low  = packed & 0x0F;
 
-            if (high & 0x08) high |= 0xF0;  
+            if (high & 0x08) high |= 0xF0;
             if (low & 0x08)  low  |= 0xF0;
 
-            printf("%d ", low);  
+            printf("%d ", low);
             printf("%d ", high);
 
             if ((i * 2 + 2) % p.Cin == 0) printf("\n");
@@ -415,7 +132,6 @@ void printMatrices_in(LUMIXEDParams p, input_t *inputMatrix) {
             int8_t v2 = (packed >> 4) & 0x03;
             int8_t v3 = (packed >> 6) & 0x03;
 
-         
             if (v0 & 0x02) v0 |= 0xFC;
             if (v1 & 0x02) v1 |= 0xFC;
             if (v2 & 0x02) v2 |= 0xFC;
@@ -427,9 +143,9 @@ void printMatrices_in(LUMIXEDParams p, input_t *inputMatrix) {
             printf("%d ", v3);
 
             if (((i * 4 + 4) % p.Cin) == 0)  printf("\n");
-        }    
-    #endif    
-    
+        }
+    #endif
+
 }
 
 void printMatrices_w(LUMIXEDParams p, weight_t *weightMatrix) {
@@ -471,20 +187,19 @@ void printMatrices_w(LUMIXEDParams p, weight_t *weightMatrix) {
     }
 }
 
-
 void printMatrices_out(LUMIXEDParams p, output_t *outputMatrix_SW, output_t *outputMatrix_HW) {
     // Printing Output Matrix SW
-    printf("\nOutput Matrix SW \n");
+    printf("\nReference output matrix\n");
     for (int f = 0; f < 1; f++) {
         printf("Filter %d\n", f);
         for (int r = 0; r < p.Rin; r++) {
             for (int c = 0; c < p.Cout; c++) {
-                int index = f * p.Rin * p.Cout + r * p.Cout + c; 
+                int index = f * p.Rin * p.Cout + r * p.Cout + c;
                 #if LUMIXED_FP_ACTIVATIONS
                     printf("0x%08x ", outputMatrix_SW[index]);
                 #else
                     printf("%d ", outputMatrix_SW[index]);
-                #endif        
+                #endif
 
             }
             printf("\n");  // Newline after each row in Rin dimension
@@ -493,7 +208,7 @@ void printMatrices_out(LUMIXEDParams p, output_t *outputMatrix_SW, output_t *out
     }
 
     // Printing Output Matrix HW
-    printf("\nOutput Matrix HW (num_filters x Rin x Cout):\n");
+    printf("\nHardware output matrix (FP mode: raw FP32 bits):\n");
     for (int f = 0; f < 1; f++) {
         for (int r = 0; r < p.Rin; r++) {
             for (int c = 0; c < p.Cout; c++) {
@@ -502,7 +217,7 @@ void printMatrices_out(LUMIXEDParams p, output_t *outputMatrix_SW, output_t *out
                     printf("0x%08x ", outputMatrix_HW[index]);
                 #else
                     printf("%d ", outputMatrix_HW[index]);
-                #endif  
+                #endif
             }
             printf("\n");  // Newline after each row in Rin dimension
         }
@@ -510,11 +225,10 @@ void printMatrices_out(LUMIXEDParams p, output_t *outputMatrix_SW, output_t *out
     }
 }
 
-
 void generate_random_matrix_in(input_t *matrix, int size) {
     // Seed the random number generator to get different values on each run
-    srand(LUMIXED_TEST_SEED); 
-    
+    srand(LUMIXED_TEST_SEED);
+
     #if LUMIXED_FP_ACTIVATIONS && LUMIXED_FP_BITS == 32
         for (int i = 0; i < size; ++i) {
             uint32_t bits = (uint32_t)rand();
@@ -529,7 +243,7 @@ void generate_random_matrix_in(input_t *matrix, int size) {
             matrix[i] = LUMIXED_TEST_PATTERN == 1 ? 0xfbffu : bits;
         }
     #elif IN_BITS == 16 || IN_BITS == 8
-        for (int i = 0; i < size; ++i) { 
+        for (int i = 0; i < size; ++i) {
             matrix[i] = LUMIXED_TEST_PATTERN == 1 ? min_in : min_in + rand() % (max_in - min_in + 1);
         }
 
@@ -557,13 +271,12 @@ void generate_random_matrix_in(input_t *matrix, int size) {
     #endif
 }
 
-
-void generate_random_matrix_w(QuantizedTensor_weight *matrix, int size, int filters) {   
-    srand(LUMIXED_TEST_SEED);  // Seed 
+void generate_random_matrix_w(LumixedWeightTensor *matrix, int size, int filters) {
+    srand(LUMIXED_TEST_SEED);  // Seed
 
     #if W_BITS == 8
     for (int f = 0; f < filters; f++) {
-        for (int i = 0; i < size; ++i) { 
+        for (int i = 0; i < size; ++i) {
             matrix[f].q[i] = LUMIXED_TEST_PATTERN == 2 ? min_w + rand() % (max_w - min_w + 1) : i + 1;
         }
     }
@@ -595,7 +308,7 @@ void generate_random_matrix_w(QuantizedTensor_weight *matrix, int size, int filt
     #endif
 }
 
-void generate_random_float_matrix(float *matrix, int size, float min_val, float max_val) { 
+void generate_random_float_matrix(float *matrix, int size, float min_val, float max_val) {
     srand(LUMIXED_TEST_SEED); // Seed RNG
 
     for (int i = 0; i < size; ++i) {
@@ -604,21 +317,20 @@ void generate_random_float_matrix(float *matrix, int size, float min_val, float 
     }
 }
 
-
-int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW, 
+int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW,
                     int num_filters, int Rin, int Cout
                      #if FPU == 1
                         ,float tolerance
                     #endif
 
-                    ) 
+                    )
     {
     int correct = 1;
     int total_elements = num_filters * Rin * Cout;
     int exact_matches = 0;
     int tolerant_matches = 0;
     int mismatch_count = 0;
-    
+
     #if FPU == 1
     // Error statistics
     float max_rel_error = 0.0f;
@@ -626,20 +338,19 @@ int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW,
     float max_abs_error = 0.0f;
     #endif
 
-    
         for (int r = 0; r < Rin; r++) {
             for (int c = 0; c < Cout; c++) {
                 int index = 0 * Rin * Cout + r * Cout + c;
                 output_t hw = outputMatrix_HW[index];
                 output_t sw = outputMatrix_SW[index];
-                
+
                 // Count exact matches
                 if (hw == sw) {
                     exact_matches++;
                     tolerant_matches++;
                     continue;
                 }
-                
+
                 if (mismatch_count++ < 8) {
                     #if LUMIXED_FP_ACTIVATIONS
                     printf("Mismatch [%d,%d]: HW=0x%08x SW=0x%08x (FP32 bits)\n", r, c, hw, sw);
@@ -652,36 +363,36 @@ int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW,
                 // Calculate errors
                 float abs_error = fabsf(hw - sw);
                 float rel_error = abs_error / fmaxf(fabsf(sw), 1e-9f);
-                
+
                 // Update statistics
                 max_abs_error = fmaxf(max_abs_error, abs_error);
                 max_rel_error = fmaxf(max_rel_error, rel_error);
                 sum_rel_error += rel_error;
-                
+
                 // Check against tolerance
                 if (abs_error <= tolerance) {
                     tolerant_matches++;
                 } else {
                     correct = 0;
-                } 
+                }
                 #endif
 
             }
     }
 
-     if (exact_matches != total_elements) { 
+     if (exact_matches != total_elements) {
         correct = 0;
     }
-    
+
     #if FPU == 1
     // Calculate matching statistics
     float exact_match_percent = 100.0f * exact_matches / total_elements;
     float tolerant_match_percent = 100.0f * tolerant_matches / total_elements;
     float avg_rel_error = sum_rel_error / total_elements;
     #endif
-    
+
     // Print comprehensive report
-    printf("Accuracy Report:\n");
+    printf("Verification against reference:\n");
     printf("----------------\n");
     #if FPU == 1
     printf("Exact matches:    %d/%d (%.2f%%)\n", exact_matches, total_elements, exact_match_percent);
@@ -689,103 +400,17 @@ int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW,
     printf("Exact matches:    %d/%d \n", exact_matches, total_elements);
     #endif
 
-
-    
     if (correct) {
         #if FPU == 1
-        printf("PASS (All elements within tolerance %.2e)\n", tolerance);
+        printf("PASS (All elements match exactly)\n");
         #elif FPU == 0
-        printf("PASS (All elements)\n");
-        #endif  
-    } else {
-        printf("FAIL (%d elements exceeded tolerance)\n", total_elements - tolerant_matches);
-    }
-    
-    return correct;
-}
-
-void preload_hw(
-    int Cin,
-    int Rin,
-    int Cout,
-    int x_slice,
-    int parallel_rin,
-    input_t *inputMatrix,
-    weight_t *weightMatrix,
-    output_t *outputMatrix_HW
-) {
-    int input_bits = IN_BITS;
-    int w_bits = W_BITS;
-    int o_bits = sizeof(output_t) * 8;
-    set_bitwidths(input_bits, w_bits, o_bits);
-    
-    int sliceFactor,x_slice_weights_reg,x_elems,dma_limit;
-
-    if(cahce4_8 && input_bits == 4 && w_bits == 8 ){ 
-        sliceFactor = 1U << (8 - 4);
-    } else { 
-        sliceFactor = 1U << (WEIGHTS_MAX_BITS - w_bits);
-    }
-    int scaledSlice = x_slice * sliceFactor;
-
-    #if LUMIXED_FLEXIBLE_BANK_GROUPING
-    // Large flexible modes (e.g. B112/W2) can exceed the 16-bit command
-    // field. Never encode an unused theoretical capacity by truncation.
-    if (scaledSlice > Cin) scaledSlice = Cin;
-    if (scaledSlice > UINT16_MAX) scaledSlice = UINT16_MAX;
-    #endif
-
-    
-    if(cahce4_8 && input_bits == 4 && w_bits == 8 ){ 
-        x_slice_weights_reg = scaledSlice; 
-        x_elems = scaledSlice ;
-        dma_limit = (Cin + x_elems - 1) / x_elems;
-
-    } else { 
-        x_slice_weights_reg = scaledSlice * (ACTIVATION_MAX_BITS / input_bits) / (WEIGHTS_MAX_BITS / w_bits);
-        #if LUMIXED_FLEXIBLE_BANK_GROUPING
-        // A partial packed byte still occupies a weight-storage slot.
-        x_slice_weights_reg = (scaledSlice + WEIGHTS_MAX_BITS / w_bits - 1)
-                             / (WEIGHTS_MAX_BITS / w_bits);
+        printf("PASS (All elements match exactly)\n");
         #endif
-        x_elems = scaledSlice * (ACTIVATION_MAX_BITS / input_bits);
-        dma_limit = (Cin + x_elems - 1) / x_elems;
+    } else {
+        printf("FAIL (%d elements differ from reference)\n", total_elements - exact_matches);
     }
-    
-    int x_slice_input_reg = scaledSlice;
 
-    uint64_t loops2 = (Rin + parallel_rin - 1) / parallel_rin;
-
-    set_rin(parallel_rin, Cin);
-    set_loops(loops2, Rin);
-
-    
-    #if BAREMETAL_NEW == 0
-        // Print addresses before calling load functions
-
-        load_o(&outputMatrix_HW[0 * Cout], Cout);
-        load_x(&inputMatrix[0 * Cin], x_slice);
-        load_w(&weightMatrix[0], x_slice_input_reg, x_slice_weights_reg, dma_limit);
-    #endif
-
-
-}
-
-void HW_Mat_Mul(
-    int Cin,
-    int Rin,
-    int Cout,
-    int x_slice,
-    int parallel_rin,
-    input_t *inputMatrix,
-    weight_t *weightMatrix,
-    output_t *outputMatrix_HW
-) {
-    start_calculation();
-
-    asm volatile ("fence rw, rw" ::: "memory"); // Memory sync
-
-    stop_busy(); // Stop waiting
+    return correct;
 }
 
 int min(int a, int b) {
@@ -857,7 +482,6 @@ void transpose_weightMatrix(weight_t *c, int Cin, int Cout) {
     #endif
 }
 
-
 #if !(LUMIXED_FP_ACTIVATIONS && LUMIXED_FP_BITS == 32)
 // FP32 tests use the independent Python reference.
 void SW_Mat_Mul(
@@ -902,8 +526,8 @@ void SW_Mat_Mul(
 
 void matmul_sw_uniform(
     output_t* xout,                // output: size d * m
-    QuantizedTensor_input* x,      // input: size n * m (quantized)
-    QuantizedTensor_weight* w,     // weights: size d * n (quantized)
+    LumixedActivationTensor* x,      // input: size n * m (quantized)
+    LumixedWeightTensor* w,     // weights: size d * n (quantized)
     int n,                        // input vector length
     int d,                        // output vector length
     int m                         // number of input vectors
@@ -914,7 +538,6 @@ void matmul_sw_uniform(
             xout[row * d + column] = lumixed_fp16_dot(x->q + row * n, w->q, n, column);
 #else
     int32_t sum;
-
 
     for (int vec_i = 0; vec_i < m; vec_i++) {           // For each input vector
         for (int i = 0; i < d; i++) {                    // For each output dimension
@@ -978,215 +601,51 @@ void matmul_sw_uniform(
 #endif
 }
 
-
 #endif // C reference for integer and FP16 modes
 
-unsigned long int_hw_cycles,float_hw_cycles,start,end;
-
-
-// Main hardware matmul; group scales are configured separately.
-void matmul_hw_uniform(
-    output_t* xout,                 // Output matrix (vectors x d).
-    QuantizedTensor_input* x,         // quantized input vector (n,)
-    QuantizedTensor_weight* w,         // quantized weight matrix (d x n)
-    int n,                      // input dimension
-    int d,                       // output dimension
-    int x_slice,
-    int y_slice,
-    int vectors
-) {
-     
-    start = rdcycle();
-    HW_Mat_Mul(n,vectors,d,x_slice,y_slice,x->q,w->q,xout);
-    end = rdcycle();
-    int_hw_cycles = end - start;
-
-}
-
-int main() {
-    int test_failed = 0; 
-    printf("HW parameters (WARNING: same as CONFIGS HW): x_slice_max = %d, y_slice_max = %d, ACTIVATION_MAX_BITS = %d, WEIGHTS_MAX_BITS = %d\n", x_slice_max, y_slice, ACTIVATION_MAX_BITS, WEIGHTS_MAX_BITS);
-
-    unsigned long sw_cycles,hw_cycles,start,end;
-    
-    int filters_max = 1;
-
-    LUMIXEDParams p = {
-        .num_filters    = 1
-        }; 
-    
-    QuantizedTensor_input inputMatrix;
-    QuantizedTensor_weight weightMatrix[filters_max]; 
-    int COUT [filters_max]; 
-  printf("Hello Baremetal Mode\n");
-
-    // static arrays for bare-metal
-    static input_t inputMatrix_q[MAX_INPUT_SIZE];
-    static weight_t weightMatrix_q[FILTERS_MAX][MAX_WEIGHT_SIZE];
-    output_t outputMatrix_HW[filters_max][Rin_max * Cout_max]; 
-
-    inputMatrix.q = inputMatrix_q;
-    for (int f = 0; f < p.num_filters; f++)
-        weightMatrix[f].q = weightMatrix_q[f];
-
-
-    output_t outputMatrix_SW[filters_max][Rin_max * Cout_max];  
- 
+// Display CPU timing. Reference mode determines which timings are meaningful.
+static inline void lumixed_print_timing(unsigned long sw_cycles, unsigned long hw_cycles) {
     #ifdef LUMIXED_PREGENERATED_TEST
-    memcpy(inputMatrix.q, lumixed_vectors_input, sizeof(lumixed_vectors_input));
-    memcpy(weightMatrix[0].q, lumixed_vectors_weights, sizeof(lumixed_vectors_weights));
-    #else
-    if(!ultra_fast_mode){ 
-        printf("Generate matrices\n"); 
-        generate_random_matrix_in(inputMatrix.q,Rin_max * Cin_max);
-        generate_random_matrix_w(weightMatrix,filters_max * Cin_max * Cout_max,p.num_filters);  
-    }
-
-    #endif /* LUMIXED_PREGENERATED_TEST */
-
-
-    
-
-        
-    p.Rin  = Rin_max;
-    p.Cin  = Cin_max; 
-    p.Cout = Cout_max;
-    sw_cycles = 0; 
-    for(int c = 0; c < p.num_filters; c++){
-        COUT[c] = Cout_max;
-    }
-
-   
-    #ifndef LUMIXED_PREGENERATED_TEST
-    if(!ultra_fast_mode){
-        for(int f =0; f < p.num_filters; f++){ 
-            transpose_weightMatrix(weightMatrix[f].q,p.Cin,COUT[f]);
-        }
-    }    
-
-    #endif /* LUMIXED_PREGENERATED_TEST */
-
-    #ifdef LUMIXED_PREGENERATED_TEST
-    memcpy(outputMatrix_SW[0], lumixed_vectors_reference, sizeof(lumixed_vectors_reference));
-    #else
-    if(!fast_mode){
-        printf("SW Mat-Mul Start\n");
-        start = rdcycle();
-        for(int f =0; f < p.num_filters; f++){ 
-            matmul_sw_uniform(outputMatrix_SW[f], &inputMatrix, &weightMatrix[f], p.Cin,COUT[f],p.Rin); 
-        }
-        end = rdcycle();
-        sw_cycles = end-start;  
-    } 
-
-    
-    #endif /* LUMIXED_PREGENERATED_TEST */
-
-    p.x_slice = x_slice_max*RF;
-    p.parallel_rin = y_slice;
-
-    printf("### Rin = %d, Cin = %d, Cout = %d, X Slice = %d, Parallel Rows = %d, input_t: %d bits, weight_t: %d bits, output_t: %d bits ###\n",
-        p.Rin, p.Cin, p.Cout, p.x_slice, p.parallel_rin, IN_BITS, W_BITS, sizeof(output_t) * 8);
-
-
-    #if Debug == 1                             
-            printMatrices_in(p, inputMatrix.q);    
-        for(int f =0; f < p.num_filters; f++){
-            printf("Filter %d \n",f);
-            p.Cout = COUT[f];
-            printMatrices_w(p, weightMatrix[f].q);    
-
-        }
-    #endif    
-        
-
-
-    printf("HW Mat-Mul Start\n");
-    start = rdcycle();
-    for(int f = 0; f < p.num_filters; f++){  
-
-        // Configure per-K-group FP16 scales before starting the matmul.
-        // The accelerator DMA reads the padded, aligned array from memory.
-        #if LUMIXED_GROUP_SCALE_MODE
-        if (lumixed_set_group_scales(lumixed_vectors_scales, LUMIXED_VECTOR_GROUP_SIZE) != 0) {
-            printf("FAIL: group-scale setup\n");
-            return 1;
-        }
-        #endif
-
-        preload_hw(p.Cin, p.Rin, COUT[f], p.x_slice, p.parallel_rin,inputMatrix.q,weightMatrix[f].q,outputMatrix_HW[f]);
-
-        matmul_hw_uniform(outputMatrix_HW[f],&inputMatrix,&weightMatrix[f],p.Cin,COUT[f],p.x_slice, p.parallel_rin,Rin_max);
-    }
-    end = rdcycle();
-    hw_cycles = end-start; 
-    
-    #ifdef LUMIXED_PREGENERATED_TEST
-    printf("Host Python reference; HW Mat-Mul %lu cycles\n", hw_cycles);
+    printf("Hardware run: %lu CPU cycles (setup and wait included)\n", hw_cycles);
     #else
     if(!fast_mode){
         #if FPU == 1
         double speedup = (double)sw_cycles / hw_cycles;
-        #endif    
+        #endif
 
-        printf("SW Mat-Mul %lu cycles\n", sw_cycles); 
-        printf("HW Mat-Mul %lu cycles\n", hw_cycles); 
+        printf("C reference: %lu CPU cycles\n", sw_cycles);
+        printf("Hardware run: %lu CPU cycles (setup and wait included)\n", hw_cycles);
         #if FPU == 1
-        printf("Speed-up: %.2f \n", speedup);
-        #endif    
+        printf("C-reference / hardware-run cycle ratio: %.2f\n", speedup);
+        #endif
 
     }
 
     if(fast_mode){
-        printf("HW Mat-Mul %lu cycles\n", hw_cycles); 
+        printf("Hardware run: %lu CPU cycles (setup and wait included)\n", hw_cycles);
     }
 
-        
     #endif /* LUMIXED_PREGENERATED_TEST */
 
-    #if Debug == 1   
-        for (int f =0; f < p.num_filters; f++) { 
-            printf("Filter %d \n",f);
-            p.Cout = COUT[f];
-            printMatrices_out(p, outputMatrix_SW[f], outputMatrix_HW[f]);
-        }
-    #endif    
+}
 
-    #if FPU == 0
-        if(!fast_mode){
-            for(int f =0; f < p.num_filters; f++){ 
-                printf("Filter %d \n",f);
-                int result = compare_matrices(outputMatrix_HW[f], outputMatrix_SW[f],1, p.Rin, COUT[f]);
-                if (!result) test_failed = 1;
-                printf("\n",f);
-            }
-        } 
-    #elif FPU == 1
-        if(!fast_mode){
-            for(int f =0; f < p.num_filters; f++){ 
-                printf("Filter %d \n",f);
-                int result = compare_matrices(outputMatrix_HW[f], outputMatrix_SW[f],1, p.Rin, COUT[f],0.01f);
-                if (!result) test_failed = 1;
-                printf("\n",f);
-            }
-        } 
-    #endif    
-
-
+// Consume counters once, in the RTL-defined order, and report their total.
+static inline void lumixed_print_hw_counters(void) {
     #if PC_COUNTERS == 1 && FPU == 1
         unsigned long load_x, Generate_Brams, load_w, Select_and_Accumulate, store_o,load_w_and_select;
 
-        load_x = read_rd();
-        Generate_Brams = read_rd();
-        load_w = read_rd();
-        Select_and_Accumulate = read_rd();
-        store_o  = read_rd ();
-        load_w_and_select = read_rd();
+        load_x = lumixed_read_counter(LUMIXED_COUNTER_LOAD_X);
+        Generate_Brams = lumixed_read_counter(LUMIXED_COUNTER_GENERATE);
+        load_w = lumixed_read_counter(LUMIXED_COUNTER_LOAD_W);
+        Select_and_Accumulate = lumixed_read_counter(LUMIXED_COUNTER_SELECT);
+        store_o  = lumixed_read_counter(LUMIXED_COUNTER_STORE_O);
+        load_w_and_select = lumixed_read_counter(LUMIXED_COUNTER_LOAD_W_AND_SELECT);
 
         // Calculate total
         unsigned long total_cycles = load_x + Generate_Brams +  load_w_and_select  + store_o;
 
         // Print actual cycles
+        printf("Accelerator active-cycle counters (overlapped stages are not added twice):\n");
         printf("Stage                  | Cycles     | Percentage\n");
         printf("-----------------------|------------|-----------\n");
         printf("Load X                 | %10lu | %6.2f%%\n", load_x, 100.0 * load_x / total_cycles);
@@ -1206,17 +665,18 @@ int main() {
 
         unsigned long load_x, Generate_Brams, load_w, Select_and_Accumulate, store_o, load_w_and_select;
 
-        load_x = read_rd();
-        Generate_Brams = read_rd();
-        load_w = read_rd();
-        Select_and_Accumulate = read_rd();
-        store_o = read_rd();
-        load_w_and_select = read_rd();
+        load_x = lumixed_read_counter(LUMIXED_COUNTER_LOAD_X);
+        Generate_Brams = lumixed_read_counter(LUMIXED_COUNTER_GENERATE);
+        load_w = lumixed_read_counter(LUMIXED_COUNTER_LOAD_W);
+        Select_and_Accumulate = lumixed_read_counter(LUMIXED_COUNTER_SELECT);
+        store_o = lumixed_read_counter(LUMIXED_COUNTER_STORE_O);
+        load_w_and_select = lumixed_read_counter(LUMIXED_COUNTER_LOAD_W_AND_SELECT);
 
         // Calculate total
         unsigned long total_cycles = load_x + Generate_Brams + load_w_and_select + store_o;
 
         // Print raw cycle counts (no percentages)
+        printf("Accelerator active-cycle counters (overlapped stages are not added twice):\n");
         printf("Stage                  | Cycles\n");
         printf("-----------------------|------------\n");
         printf("Load X                 | %10lu\n", load_x);
@@ -1236,6 +696,6 @@ int main() {
            total_cycles, load_x, Generate_Brams, load_w, Select_and_Accumulate, store_o, load_w_and_select);
     #endif
 
-
-  return test_failed;
 }
+
+#endif // LUMIXED_TEST_UTILS_H

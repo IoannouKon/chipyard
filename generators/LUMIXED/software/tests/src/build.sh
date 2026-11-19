@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================
-# Build script for Linear-sw.c (RISC-V)
+# Build script for lumixed_matmul_test.c (RISC-V)
 # Usage:
 #   ./build.sh baremetal   -> build for bare-metal (no OS)
 #   ./build.sh linux       -> build for Linux RISC-V
@@ -9,8 +9,8 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
-SRC="Linear-sw.c"
-OUT="Linear-sw.riscv"
+SRC="lumixed_matmul_test.c"
+OUT="lumixed_matmul_test.riscv"
 
 # Check argument
 if [ "$#" -ne 1 ]; then
@@ -81,8 +81,8 @@ fi
 
 if [ "$MODE" = "baremetal" ]; then
   echo "Building bare-metal version..."
-  riscv64-unknown-elf-gcc "${TEST_FLAGS[@]}" -fno-common -fno-builtin-printf -specs=htif_nano.specs -c "$SRC" -o Linear-sw.o
-  riscv64-unknown-elf-gcc -static -specs=htif_nano.specs Linear-sw.o -o "$OUT"
+  riscv64-unknown-elf-gcc "${TEST_FLAGS[@]}" -fno-common -fno-builtin-printf -specs=htif_nano.specs -c "$SRC" -o lumixed_matmul_test.o
+  riscv64-unknown-elf-gcc -static -specs=htif_nano.specs lumixed_matmul_test.o -o "$OUT"
   echo "Bare-metal build complete: $OUT"
 
 elif [ "$MODE" = "linux" ]; then
