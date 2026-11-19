@@ -49,8 +49,8 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   require(params.parallel_rows >= 1 && params.Rin >= params.parallel_rows,
     "Rin row capacity must be at least parallel_rows")
   if (params.FP_ACTIVATIONS) {
-    require(params.XBitWidth == params.FP_BITS && params.OutBitWidth == 32 && !params.SCALE,
-      "FP activations require XBitWidth=FP_BITS, OutBitWidth=32 and SCALE=false")
+    require(params.XBitWidth == params.FP_BITS && params.OutBitWidth == 32,
+      "FP activations require XBitWidth=FP_BITS, OutBitWidth=32")
     require(params.Cin >= 1 && params.Cin <= 65536 && params.WBitWidth == 8,
       "FP16 supports Cin<=65536 and signed W8/W4/W2")
   }
@@ -70,7 +70,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val fpGeometry = params.FP_ACTIVATIONS
   val activationCells = params.DMA_bits / params.XBitWidth
   val activationDepth = (((1 << (params.WBitWidth - params.minWeightBits)) * params.table_capacity_factor) + activationCells - 1) / activationCells
-  require(!params.BRAM_OUTPUTS || (!params.SCALE && params.OutBitWidth == 32),
+  require(!params.BRAM_OUTPUTS || params.OutBitWidth == 32,
     "BRAM outputs support unscaled INT32 or FP32 output words")
 
   // === Command interface and instruction decode ===
@@ -87,7 +87,6 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val mode_3         = funct === 3.U // K dimension in rs1; active row-group setting in rs2.
   val mode_5         = funct === 5.U // Row-group loop count in rs1; total input rows in rs2.
   val mode_6         = funct === 6.U // Completion acknowledgement in sDELAY.
-  val mode_7         = funct === 7.U // Scale factor in rs1 when SCALE is enabled.
   val mode_8         = funct === 8.U // Packed input and weight bit widths in rs1; output width is fixed by params.
   val mode_9         = funct === 9.U // Performance-counter readback.
   val mode_10        = funct === 10.U // Start the matmul.
@@ -343,7 +342,6 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val scaleIssued = if (groupScaling) Some(RegInit(0.U(math.max(1, log2Ceil(scaleWordCapacity + 1)).W))) else None
   val scaleReturned = if (groupScaling) Some(RegInit(0.U(math.max(1, log2Ceil(scaleWordCapacity + 1)).W))) else None
   val windowRetired = if (groupScaling) Some(RegInit(false.B)) else None
-  val scale = RegInit(0.U(32.W)) // 32-bit register for IEEE 754 float
 
   // === Runtime element formats and performance counters ===
   //bitwidths
@@ -822,11 +820,6 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         rin_reg := rs2
       }
 
-      if(params.SCALE) { //SCALE
-        when(cmd.fire && (mode_7)) {
-          scale   := rs1
-        }
-      }
 
       when(cmd.fire && (mode_8)) {
         if (!fpGeometry) input_bits := rs1(5,0)
@@ -1754,16 +1747,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
           dma.io.writeData := words.zipWithIndex.foldLeft(0.U(params.DMA_bits.W)) { case (packed, (word, i)) =>
             packed | (word << ((i.U + done_elems_in_block) * params.OutBitWidth.U))
           }
-        } else if(params.SCALE) {
-
-          val scaleModule = Module(new Scale_Vector)
-          val dataVector = VecInit((0 until elems_per_chunk).map(i => Mux(i.U < R_elems_per_chunk, O_reg.get(0)(Rin_cnt)(dma_counter_a + i.U), 0.S(params.DMA_bits.W))))
-          scaleModule.io.inVector := dataVector
-          scaleModule.io.scale    := scale
-
-          dma.io.writeData := scaleModule.io.out << (done_elems_in_block * params.OutBitWidth.U)
-
-        } else {  //NO Scale
+        } else {
 
           val data_chunk = (0 until elems_per_chunk).foldLeft(0.U(params.DMA_bits.W)) { (acc, i) =>
             acc | Mux( i.U < R_elems_per_chunk,

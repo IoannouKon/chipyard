@@ -209,11 +209,6 @@ update_define XS "$XS"
 update_define YS "$YS"
 update_define Mem_row_factor "$Mem_row_factor"
 
-# Legacy SCALE=1 is a separate integer-only math mode not yet covered.
-if [[ "$FAST_VECTORS" == 1 ]] && grep -Eq '^#define[[:space:]]+SCALE[[:space:]]+1([[:space:]]|$)' "$C_FILE"; then
-  echo 'Python reference does not cover legacy SCALE=1; use SCALE=0 or FAST_VECTORS=0.' >&2
-  exit 2
-fi
 
 # -----------------------------------------------------------------------------
 # 7. Generate Python reference (optional) and compile the RISC-V C test

@@ -32,7 +32,6 @@
 #define Debug               0  // Print input and output matrices.
 #define PC_COUNTERS         1  // Print accelerator performance counters.
 #define FPU                 0  // Whether the Rocket core supports an FPU.
-#define SCALE               0  // Legacy uniform integer-output scaling.
 
 // Build-time activation mode; raw IEEE bits transfer without CPU conversion.
 #ifndef LUMIXED_FP_ACTIVATIONS
@@ -93,17 +92,11 @@
 #if LUMIXED_FP_ACTIVATIONS && IN_BITS == 32 && !defined(LUMIXED_PREGENERATED_TEST)
 #error "FP32 exact-reference tests require FAST_VECTORS=1 (Python arbitrary-precision reference)"
 #endif
-#if LUMIXED_FP_ACTIVATIONS && SCALE
-#error "FP16 mode already returns FP32; the integer SCALE path must be disabled"
-#endif
 #if LUMIXED_GROUP_SCALE_MODE && !LUMIXED_FP_ACTIVATIONS
 #error "Group scaling requires FP16 activations"
 #endif
 #if LUMIXED_GROUP_SCALE_MODE && !defined(LUMIXED_PREGENERATED_TEST)
 #error "Group-scaling test requires a pregenerated Python reference and scales"
-#endif
-#if SCALE && defined(LUMIXED_PREGENERATED_TEST)
-#error "Legacy uniform SCALE is not covered by the Python reference"
 #endif
 
 // The printf wrapper follows its function definition so it cannot recurse.
@@ -211,9 +204,7 @@ int Cout_max = COUT_MAX;
 
 #if LUMIXED_FP_ACTIVATIONS
     typedef uint32_t output_t; // Raw IEEE binary32 bits; works without a CPU FPU.
-#elif SCALE == 1
-    typedef float output_t; 
-#elif SCALE == 0  
+#else
     typedef int32_t output_t;  
 #endif    
 
@@ -277,16 +268,10 @@ static uint32_t lumixed_fp16_dot(const input_t *x, const weight_t *w, int n, int
 
 typedef struct {
   input_t *q; // quantized values
-  #if SCALE == 1
-    float s;  // scaling factors
-  #endif    
 } QuantizedTensor_input;
 
 typedef struct {
   weight_t *q; // quantized values
-  #if SCALE == 1
-    float s;  // scaling factors
-  #endif   
 } QuantizedTensor_weight;
 
 
@@ -340,16 +325,6 @@ static inline void stop_busy()
 	ROCC_INSTRUCTION_SS(0, 0, 0, 6);
 } 
 
-static inline void set_scale(float scale) 
-
-{
-	asm volatile ("fence" ::: "memory");
-
-    uint32_t scale_bits;
-    memcpy(&scale_bits, &scale, sizeof(scale)); // safely convert float to raw bits
-
-	ROCC_INSTRUCTION_SS(0, (uint64_t)scale_bits, 0, 7);
-} 
 
 static inline void set_bitwidths(int  input_bits,int weight_bits,int output_bits) 
 
@@ -507,9 +482,7 @@ void printMatrices_out(LUMIXEDParams p, output_t *outputMatrix_SW, output_t *out
                 int index = f * p.Rin * p.Cout + r * p.Cout + c; 
                 #if LUMIXED_FP_ACTIVATIONS
                     printf("0x%08x ", outputMatrix_SW[index]);
-                #elif SCALE == 1
-                    printf("%.6f ", outputMatrix_SW[index]);
-                #elif SCALE == 0  
+                #else
                     printf("%d ", outputMatrix_SW[index]);
                 #endif        
 
@@ -527,9 +500,7 @@ void printMatrices_out(LUMIXEDParams p, output_t *outputMatrix_SW, output_t *out
                 int index = f * p.Rin * p.Cout + r * p.Cout + c;
                 #if LUMIXED_FP_ACTIVATIONS
                     printf("0x%08x ", outputMatrix_HW[index]);
-                #elif SCALE == 1
-                    printf("%.6f ", outputMatrix_HW[index]);
-                #elif SCALE == 0  
+                #else
                     printf("%d ", outputMatrix_HW[index]);
                 #endif  
             }
@@ -672,8 +643,6 @@ int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW,
                 if (mismatch_count++ < 8) {
                     #if LUMIXED_FP_ACTIVATIONS
                     printf("Mismatch [%d,%d]: HW=0x%08x SW=0x%08x (FP32 bits)\n", r, c, hw, sw);
-                    #elif SCALE == 1
-                    printf("Mismatch [%d,%d]: HW=%.9g SW=%.9g\n", r, c, (double)hw, (double)sw);
                     #else
                     printf("Mismatch [%d,%d]: HW=%d SW=%d\n", r, c, hw, sw);
                     #endif
@@ -721,12 +690,6 @@ int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW,
     #endif
 
 
-    #if SCALE == 1
-    printf("Tolerant matches: %d/%d (%.2f%%)\n", tolerant_matches, total_elements, tolerant_match_percent);
-    printf("Max absolute error: %.8f\n", max_abs_error);
-    printf("Max relative error: %.8f%%\n", max_rel_error*100);
-    printf("Avg relative error: %.8f%%\n", avg_rel_error*100); 
-    #endif  
     
     if (correct) {
         #if FPU == 1
@@ -750,9 +713,6 @@ void preload_hw(
     input_t *inputMatrix,
     weight_t *weightMatrix,
     output_t *outputMatrix_HW
-    #if SCALE == 1
-    , float scale
-    #endif
 ) {
     int input_bits = IN_BITS;
     int w_bits = W_BITS;
@@ -799,9 +759,6 @@ void preload_hw(
     set_rin(parallel_rin, Cin);
     set_loops(loops2, Rin);
 
-    #if SCALE == 1
-        set_scale(scale);
-    #endif
     
     #if BAREMETAL_NEW == 0
         // Print addresses before calling load functions
@@ -823,9 +780,6 @@ void HW_Mat_Mul(
     input_t *inputMatrix,
     weight_t *weightMatrix,
     output_t *outputMatrix_HW
-    #if SCALE == 1
-    , float scale
-    #endif
 ) {
     start_calculation();
 
@@ -961,9 +915,6 @@ void matmul_sw_uniform(
 #else
     int32_t sum;
 
-    #if SCALE == 1  
-        float scale = x->s * w->s;
-    #endif    
 
     for (int vec_i = 0; vec_i < m; vec_i++) {           // For each input vector
         for (int i = 0; i < d; i++) {                    // For each output dimension
@@ -1021,11 +972,7 @@ void matmul_sw_uniform(
                 sum += (int32_t)x_val * (int32_t)w_val;
             }
 
-            #if SCALE == 1  
-                xout[vec_i * d + i] = (float)sum * scale;
-            #else
                 xout[vec_i * d + i] = sum;
-            #endif  
         }
     }
 #endif
@@ -1037,9 +984,9 @@ void matmul_sw_uniform(
 unsigned long int_hw_cycles,float_hw_cycles,start,end;
 
 
-// Main matmul with uniform row-wise scale
+// Main hardware matmul; group scales are configured separately.
 void matmul_hw_uniform(
-    output_t* xout,                 // float output vector (size d)
+    output_t* xout,                 // Output matrix (vectors x d).
     QuantizedTensor_input* x,         // quantized input vector (n,)
     QuantizedTensor_weight* w,         // quantized weight matrix (d x n)
     int n,                      // input dimension
@@ -1048,10 +995,6 @@ void matmul_hw_uniform(
     int y_slice,
     int vectors
 ) {
-    #if SCALE == 1
-        float scale = x->s * w->s;
-        HW_Mat_Mul(n,1,d,x_slice,y_slice,x->q,w->q,xout,scale);
-    #endif      
      
     start = rdcycle();
     HW_Mat_Mul(n,vectors,d,x_slice,y_slice,x->q,w->q,xout);
@@ -1103,18 +1046,6 @@ int main() {
 
 
     
-    #if SCALE == 1
-    printf("Generates Scales\n");
-
-    float rand_frac = (float)rand() / RAND_MAX; // [0, 1)
-    inputMatrix.s =  0.01f + rand_frac * (1.0f - 0.01f); // [min_val, max_val)
-
-    rand_frac = (float)rand() / RAND_MAX; // [0, 1)
-    for(int f =0 ; f < p.num_filters ; f++){ 
-        rand_frac = (float)rand() / RAND_MAX; // [0, 1)
-        weightMatrix[f].s = 0.01f + rand_frac * (0.5f - 0.01f); // [min_val, max_val)
-    }
-    #endif 
 
         
     p.Rin  = Rin_max;

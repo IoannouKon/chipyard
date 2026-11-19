@@ -14,7 +14,6 @@ case class LUMIXEDParams(
   num_filters:                 Int,
   Dma_Ids:                     Int,
   DMA_Bytes:                   Int,
-  SCALE:                       Boolean,
   DEBUG:                       Boolean,
   W_BUFFS:                     Int,
   table_capacity_factor:       Int,
@@ -67,10 +66,9 @@ object LUMIXED_Config {
     DMA_Bytes = 8, // Beat size; DMA_bits is derived as DMA_Bytes * 8.
     W_BUFFS   = 2, // Prefetch buffers, shared across parallel activation rows.
 
-    // 5. Output storage and optional integer scaling.
+    // 5. Output storage.
     BRAM_OUTPUTS = true,  // Use synchronous SRAM for output accumulators.
     num_filters  = 1,     // Register-output bank allocation; only bank 0 is used.
-    SCALE        = false, // Integer output scaling; unsupported with FP16/BRAM outputs.
 
     // 6. Optional scheduling experiments (disabled by default).
     // W8/input16: retain captured weight words so their buffer can refill early.
