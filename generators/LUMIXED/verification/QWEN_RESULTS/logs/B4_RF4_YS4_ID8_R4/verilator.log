@@ -1,0 +1,401 @@
+SYNTHETIC QWEN3-SHAPED VERILATOR RESULTS
+Configuration: {'design': 'B4_RF4_YS4_ID8_R4', 'B': 4, 'RF': 4, 'YS': 4, 'DMA_ID': 8, 'Rin_capacity': 4, 'Cin_capacity': 3072, 'Cout_capacity': 3072, 'activation': 'FP32', 'scale': 'FP16', 'output': 'FP32', 'DMA_Bytes': 8, 'W_BUFFS': 2, 'GROUP_SCALE_DEFERRED': True, 'GROUP_SCALE_ALIGNED': False, 'BRAM_OUTPUTS': True, 'SKIP_ZERO_WEIGHTS': False, 'FLEXIBLE_BANK_GROUPING': False, 'EARLY_WEIGHT_BUFFER_RELEASE': False, 'WEIGHT_DMA_BURSTS': False, 'SCALE': False, 'DEBUG': True}
+Source report: /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/report.json
+Source report SHA256: f785affd0ea9d88bfa5868a680d03139dec8837a908383a942e17cd6b58baeeb
+Simulator SHA256: 2dcd35bd4f590dc87300299a53774d5e61f8059a1263ba08f98655c00d25a692
+C adapter SHA256: b4f3852745914db47e6d8098a045ea833c90a8b7f039a9c01113cea89f0869bd
+Harness SHA256: a6a61b5db138ca3ddb86af1e4c22c03c237dba3c5007143b4b1fd401c93406ef
+Host runner SHA256: 887222fe1e411fee9fc8380e0ab1aa784260410698dc2b56aa72cb210122c602
+Chipyard assembly SHA256: 8249886cc04d94ab9ded898db66f8f0482379f2dc7367718af136a4fd8afa9fa
+RTL source hashes:
+ActivationAddressCounter.scala: 89f50aa22863cdb24c7a98464bc4ac010f5953c47a166a9a3d7d85d5405119de
+ChunkInfoModules.scala: 7a6b6229f1afa9be8c120184fe4ca2f0f3275b542f8d493f0df104fe9191ec70
+Config.scala: 60644800aa21714591a72f13a989f04654735308814d01a8dae897a8ba742040
+DMA.scala: 5ad2700c5ee1fb73fab3598272d734a0d390c01133f303efaa37382cc9aa93a3
+FP16.scala: 68ebd5418fc6a1c816d0f7b84989f3f2963dc1c40e11d5ebcaaf3142f80401c7
+GroupScaleEngine.scala: 6fe6c13edd6dbc3d4a3925855093de3f9d192f866c07913928e86d7bd508022b
+LUMIXEDTopHelpers.scala: c9712cf547b98480848119f285edf56bd57e95ea7c287f50473c87049cded5ba
+LUMIXED_Top.scala: 078197e2fdf862383b1b224b2331d4506196361134e8b2a0c5b55084239b2c39
+OutputAccumulator.scala: 5a123ceaf02416e54604fe51602588dec5d726845da53f43707bb6bff4d356de
+Product_Generator.scala: 9cfd8390bd893f0f8d5fb5479c9cc0da3a82ec0c5cd27e8d95bbb24cfd6e9af4
+Scale.scala: c68be14bfc3bf638c54d91223f1fa0b9300ed0935080cdfbd62cfc4cacf492d5
+SignExtractor.scala: af25ccb210d92184e75c66cda12145a65b53019d1de4bd7c721c0b2685c48f6c
+ZeroWeightSelector.scala: b70d7826db52af1abf3e1afc2446ec1ee37920617ae93f1fde5737558422c0fc
+
+Elaborated configuration:
+package qwenverify
+import org.chipsalliance.cde.config.Config
+class QwenVerifyRocketConfig extends Config(
+  new Config((site, here, up) => {
+    case LUMIXED_PACKAGE.LUMIXEDParamsKey =>
+      LUMIXED_PACKAGE.LUMIXED_Config.LUMIXED_Config.copy(
+        Rin=4, Cin=3072, Cout=3072,
+        banks_per_row=4, table_capacity_factor=4, parallel_rows=4,
+        FP_ACTIVATIONS=true, FP_BITS=32, WBitWidth=8, OutBitWidth=32,
+        DMA_Bytes=8, Dma_Ids=8, W_BUFFS=2,
+        SCALE=false, BRAM_OUTPUTS=true, GROUP_SCALE_ALIGNED=false,
+        GROUP_SCALE_DEFERRED=true, DEBUG=true, SKIP_ZERO_WEIGHTS=false,
+        FLEXIBLE_BANK_GROUPING=false, WEIGHT_DMA_BURSTS=false,
+        EARLY_WEIGHT_BUFFER_RELEASE=false)
+  }) ++ new chipyard.LUMIXEDRocketConfig)
+
+
+================================================================================
+W8 Q: X[4,1024] * W[1024,2048] G=32
+Exact Python comparison: PASS 8192/8192
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: f2591f726f171a3942b95d44fb6dc655ab71e5716e0c6091e19f4fb9b76af74b
+Packed weights SHA256: d2fbd3bbd22d298f6caa6f8991d8fc8b438358634a3a5f970e24f2fc798b6373
+Scales SHA256: 4d6aa8059796055c1315f516bceee438055b7132b338eaf62593b7372fb2a7bd
+Python expected SHA256: f67617f7ee01e03cb30b240c5764c562082bc8d2fd9179c59dfd9ec3ec92a402
+HW output SHA256: f67617f7ee01e03cb30b240c5764c562082bc8d2fd9179c59dfd9ec3ec92a402
+ELF SHA256: 02585f2f33ba78bae63f9cd4929c7e33fe8704ce2739350168f8bedf6425013c
+Original raw log SHA256: 93f5ec4701414eb1836e3ba40eaf66dd2eff0c454dd4c201839c68941b0889b6
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W8_Q/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W8_Q/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=2345512 load_x=37280 generate_brams=16640 load_w=2230230 select_accumulate=852420 store_o=8233 load_w_and_select=2283359
+QWEN_VERIFY_BINARY 32768
+
+[Binary FP32 output payload: 32768 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W8 K_V: X[4,1024] * W[1024,1024] G=32
+Exact Python comparison: PASS 4096/4096
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: a68b472b2fae821cf80e30be732ebf6abfeff63cf63c362bea8b22b276af3e2e
+Packed weights SHA256: 13e2fb4213de94b996ee93e1e900971aa13dae945f06941fca1df6498a0c5400
+Scales SHA256: 2b4cfaee3e9d301679c608af737074ea273c83eec1f5eedd8039d17ee6d61cbc
+Python expected SHA256: a459975608df7a5680349b07e3b1490fc4cb99d015f244d99b8965ddddf4f039
+HW output SHA256: a459975608df7a5680349b07e3b1490fc4cb99d015f244d99b8965ddddf4f039
+ELF SHA256: b71417a7c930a6b256d328603ee3ad7808fcde11947895c73d659a75302c9565
+Original raw log SHA256: f7d02473500539983f4f430710babcf6c370688020427ba0ab471f58981eb49e
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W8_K_V/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W8_K_V/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=1069012 load_x=21916 generate_brams=16640 load_w=994615 select_accumulate=433912 store_o=4131 load_w_and_select=1026325
+QWEN_VERIFY_BINARY 16384
+
+[Binary FP32 output payload: 16384 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W8 O: X[4,2048] * W[2048,1024] G=32
+Exact Python comparison: PASS 4096/4096
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: 7b17c6bf235c600f06b672b70a5b2400cbca2a8b89867c7f7d3aad2fa2aa8415
+Packed weights SHA256: 754eeae13b5a0af382aa8a0acdbf79b179b5eff34ce8ee2e645c6d7125a18462
+Scales SHA256: 2c403092eb3212edb7c99a33a6ceda990ff4f5ebd4bf88913c7401cc0a2038cd
+Python expected SHA256: 38c00f25b360d5533715b3039ca737573262bf7f468c493b98b054ace50e1c5d
+HW output SHA256: 38c00f25b360d5533715b3039ca737573262bf7f468c493b98b054ace50e1c5d
+ELF SHA256: 0856cf4ed227a07a2ade03d83da943307d96e01b4b081ab2a06a6369b5c5dc1b
+Original raw log SHA256: da6f147231627414f2c167906e1744ee3bc19b062f5296264eac4a78aeb7428f
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W8_O/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W8_O/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=2364034 load_x=43822 generate_brams=33280 load_w=2230834 select_accumulate=852062 store_o=4136 load_w_and_select=2282796
+QWEN_VERIFY_BINARY 16384
+
+[Binary FP32 output payload: 16384 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W8 GATE_UP: X[4,1024] * W[1024,3072] G=32
+Exact Python comparison: PASS 12288/12288
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: 5486ecf060f090998b8772eb77fd38c2f1ebcd1063d8b16d2a43423ab4fec3b0
+Packed weights SHA256: 8940d55bdc7818ec2efaa09cdfc5cf96e44947e9a0adcd576b390e0793ee893c
+Scales SHA256: 46395c315f41eaf0b355bd97dca47acb19406b130390ea7224ad9d5777545349
+Python expected SHA256: 5ed777d66f82069998edcc4bfd469eb246f87a6dc6d7dd40b5b3e766b8665ad2
+HW output SHA256: 5ed777d66f82069998edcc4bfd469eb246f87a6dc6d7dd40b5b3e766b8665ad2
+ELF SHA256: 6776477ff67dbd60701ec9cebb765fe96f404c0e830c616703c86010577c4341
+Original raw log SHA256: 8fa8e979f2b3181a280c622b7c08755614a97afedba97a2dc80324758189b106
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W8_GATE_UP/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W8_GATE_UP/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=3528046 load_x=53192 generate_brams=16640 load_w=3368504 select_accumulate=1275160 store_o=12336 load_w_and_select=3445878
+QWEN_VERIFY_BINARY 49152
+
+[Binary FP32 output payload: 49152 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W8 DOWN: X[4,3072] * W[3072,1024] G=32
+Exact Python comparison: PASS 4096/4096
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: 45cd9c27097de15a5e31f68ee9ee7dcd7b0c4da599ea7bf54e392c06cb185d0f
+Packed weights SHA256: 7603108a53ced8b3cd456a16d7c16d3bc1a5b5fe0ebb37e86fccd024a1dad2ff
+Scales SHA256: cc8ff1db126ddfcb0eaf232e87ad6ede82ba43d718ec317c5b58370ab2552a1e
+Python expected SHA256: d6a35ea1142158f0c05f37b1a4cef8bda279663151ce68f66f622e26df78f6e4
+HW output SHA256: d6a35ea1142158f0c05f37b1a4cef8bda279663151ce68f66f622e26df78f6e4
+ELF SHA256: fba9eaa36b77f0adffc4cec7721417ffffbf5f5f9180c21b49cbb7ef27e72e30
+Original raw log SHA256: 1cc43084ab5be395c36b3f53fc181a3c56349a6077d5f19e3eddc27db57d3eef
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W8_DOWN/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W8_DOWN/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=3210975 load_x=66628 generate_brams=49920 load_w=3000153 select_accumulate=1304030 store_o=4138 load_w_and_select=3090289
+QWEN_VERIFY_BINARY 16384
+
+[Binary FP32 output payload: 16384 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W4 Q: X[4,1024] * W[1024,2048] G=32
+Exact Python comparison: PASS 8192/8192
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: a41aec0ddd9dbcf82f466342e1502060d804aefa5b72af2701df7a4c96ae2ac0
+Packed weights SHA256: de407b9bfb00c1c2fecedff612c22874a2ca64115aa5b98ad4f430c69afe9140
+Scales SHA256: 1ac63472e4a28090d13054f7f7fc2ebf219b4d423a32b8d2a16de790829ef1d0
+Python expected SHA256: 417f865e4d283c83defb827d37f826e5a8048fdc40300974407c8cf6159e255e
+HW output SHA256: 417f865e4d283c83defb827d37f826e5a8048fdc40300974407c8cf6159e255e
+ELF SHA256: 09c82bf297c9422af6336a84e9ccf114ee6d461652de51933d8b9498beeb9c05
+Original raw log SHA256: bf57f392d6c1c1334346fcb87ce9c25175217e3af9ded3872850852125622df2
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W4_Q/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W4_Q/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=568052 load_x=34222 generate_brams=1280 load_w=438891 select_accumulate=524346 store_o=8154 load_w_and_select=524396
+QWEN_VERIFY_BINARY 32768
+
+[Binary FP32 output payload: 32768 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W4 K_V: X[4,1024] * W[1024,1024] G=32
+Exact Python comparison: PASS 4096/4096
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: 82b256a5dc733664b7c22526600ec319003c264b73dd2dea706a42ca3c5c320d
+Packed weights SHA256: 42ee2f20ddedeba61c17da49c1d22eac71df4eba957f2675d57a198b79abb070
+Scales SHA256: e0701d7e53f92019d7de89726f0d7a2478105e1ba7b26163ab505e93a0281aad
+Python expected SHA256: 4cd98c96465b5472ff192f452c5d935a267a040a271bc31594d4e99599c10e8a
+HW output SHA256: 4cd98c96465b5472ff192f452c5d935a267a040a271bc31594d4e99599c10e8a
+ELF SHA256: db40422828f902f6de1cd7a3f50e2257f7d411a43ca5d85032218d4743cd50de
+Original raw log SHA256: ab7a388c2fd1c9149189daad15527f90ec79c20d1a96cc4d0a456158e92b6f40
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W4_K_V/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W4_K_V/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=286048 load_x=18664 generate_brams=1280 load_w=189614 select_accumulate=262187 store_o=3875 load_w_and_select=262229
+QWEN_VERIFY_BINARY 16384
+
+[Binary FP32 output payload: 16384 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W4 O: X[4,2048] * W[2048,1024] G=32
+Exact Python comparison: PASS 4096/4096
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: 2285898b469e59baf78f8e3739f9bda0deaaaf7d750d0a18105dab403d1b22ec
+Packed weights SHA256: 9179f927612a4d848e216d6161c93ec26144e44924c73c29ef27617c5824b64b
+Scales SHA256: 611b7748241e1550cbd1878df09728d3dac846e3fb3dd33e787a128ac6f79cd0
+Python expected SHA256: dc39caec05bdae9ebf11668fd396143c2a08191f73dde745674dc5dccbd059b5
+HW output SHA256: dc39caec05bdae9ebf11668fd396143c2a08191f73dde745674dc5dccbd059b5
+ELF SHA256: e6ad3691072e9b6d59e0eaaf1d94729dbc4d96bfead55908acc9483f53d9bcd6
+Original raw log SHA256: dd2a55e12267646c9dcd720a0dae6611d3764375469fb633242338d753fc0168
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W4_O/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W4_O/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=568727 load_x=37596 generate_brams=2560 load_w=440806 select_accumulate=524386 store_o=4088 load_w_and_select=524483
+QWEN_VERIFY_BINARY 16384
+
+[Binary FP32 output payload: 16384 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W4 GATE_UP: X[4,1024] * W[1024,3072] G=32
+Exact Python comparison: PASS 12288/12288
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: 065870ddffdb34f57553916bac7eecc4826377be6d61488182de9f7a28155d50
+Packed weights SHA256: a2b83ad9567d9f4bb0696d43451c405f6799a621d49f7550d56027c56aebb2e2
+Scales SHA256: 9c4ae57d885861772e5aafc680efad010e9db0d78b13db222d848d6f9e369d13
+Python expected SHA256: 9bcb647f9905f48356e4be0e8a016d31a25fe258dc98fd7d5c155ebe13496fc4
+HW output SHA256: 9bcb647f9905f48356e4be0e8a016d31a25fe258dc98fd7d5c155ebe13496fc4
+ELF SHA256: c3b517e2a63eb6ee90c5049718a5798ce71012063024acea2e15b727b6168a35
+Original raw log SHA256: 7d6ba414cc0ddaf2470da2cdbbea602b11132dde4da3df6995c02b72fe41b801
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W4_GATE_UP/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W4_GATE_UP/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=850166 load_x=50008 generate_brams=1280 load_w=690028 select_accumulate=786503 store_o=12316 load_w_and_select=786562
+QWEN_VERIFY_BINARY 49152
+
+[Binary FP32 output payload: 49152 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W4 DOWN: X[4,3072] * W[3072,1024] G=32
+Exact Python comparison: PASS 4096/4096
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: feb26774e6b874c61eea3fc59002d00714e7e41d666ad89cdd0a80561f92190f
+Packed weights SHA256: 2e25bc3da6183f09a768a74b419c806cc5c64478394c0265d41a4b285f97f15e
+Scales SHA256: ef7d5d902e998c6efcf5beccc7d3f8013ad5c52b7c78641380bb5c8c58d6e4fd
+Python expected SHA256: 4ae8d892d7d207e223fa5ee6522988b39ae632cffbe124cee2884a369de02dfd
+HW output SHA256: 4ae8d892d7d207e223fa5ee6522988b39ae632cffbe124cee2884a369de02dfd
+ELF SHA256: 328744faa85cd5d83967fc87a64092dccafacbbd5230fdb7b018ca3975671a0a
+Original raw log SHA256: 88fc7af507cf2c62609ca529ed2701986ce40fb3358ee917d20b9b460f9e339d
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W4_DOWN/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W4_DOWN/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=851587 load_x=56987 generate_brams=3840 load_w=598882 select_accumulate=786522 store_o=4128 load_w_and_select=786632
+QWEN_VERIFY_BINARY 16384
+
+[Binary FP32 output payload: 16384 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W2 Q: X[4,1024] * W[1024,2048] G=64
+Exact Python comparison: PASS 8192/8192
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: bd31a6b6bfd8d358826c6442bdaf6ed5fcacc5fd2ba0a3b6729954e5afeea842
+Packed weights SHA256: 38335448196b5aba8854c8c4bfab3c546e527a69b7e33c73db39a31e5f9d3c4d
+Scales SHA256: c98e82c3d0f503105247f8ed48f47c805a9cf1f6dd7f99d9110f5d8473025e21
+Python expected SHA256: 82bd63ab13adc38ee25d4f2940116d4152777e5d07829299825476ab3a9ac36b
+HW output SHA256: 82bd63ab13adc38ee25d4f2940116d4152777e5d07829299825476ab3a9ac36b
+ELF SHA256: c423d2afd6872b185c0ce7e7fd7fce26f2f7deaaba0628beee1ad8d12f61f2b6
+Original raw log SHA256: 689c8410a45d1463f7dee0ff8274a9b34b92b5e62d87a5cff3698fadef3d5357
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W2_Q/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W2_Q/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=550955 load_x=18752 generate_brams=512 load_w=138691 select_accumulate=524292 store_o=7391 load_w_and_select=524300
+QWEN_VERIFY_BINARY 32768
+
+[Binary FP32 output payload: 32768 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W2 K_V: X[4,1024] * W[1024,1024] G=64
+Exact Python comparison: PASS 4096/4096
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: fdd22f65911c0842a033248c0e35d9a71bb2079df564d777d50854a82cd78553
+Packed weights SHA256: 394cdf1a69930eb0fb4039e4fd4b35c0662c322a86c2548fa312dfd04c9044d6
+Scales SHA256: 8ef719d1fc55aae1f45967c4f021263e5144494455f42ab0f8da043ca1999e4e
+Python expected SHA256: 376b842813e51eec702610687b106a77eeb1c3651fc49cf7a554a828839512f5
+HW output SHA256: 376b842813e51eec702610687b106a77eeb1c3651fc49cf7a554a828839512f5
+ELF SHA256: 9aeccac30345dbeb63544436f1a8abcdeeda79d6ca95c9c6d11d8299cbe9ee1f
+Original raw log SHA256: d8cb9eccf558f11e76a58238d5a8c13d3b630d7cb275a47fd5b627f8fbf898e0
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W2_K_V/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W2_K_V/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=277109 load_x=11067 generate_brams=512 load_w=67992 select_accumulate=262148 store_o=3374 load_w_and_select=262156
+QWEN_VERIFY_BINARY 16384
+
+[Binary FP32 output payload: 16384 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W2 O: X[4,2048] * W[2048,1024] G=64
+Exact Python comparison: PASS 4096/4096
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: 97fa7b10c713facfff867e86f938fe527247f3f325a6179dae34d5b40f96adb9
+Packed weights SHA256: a23d0575bb43cd57d43d6ed239dd5fa8812ef899bc32063503d3b84d001856d8
+Scales SHA256: f6e74341dc95e76a4a9922cbc351de3cdd94f9c837aae5d570d10fa4fcd71515
+Python expected SHA256: abd16f115328676e63144134d848db7679d1645bc4f441b6d7d51de22c946d2c
+HW output SHA256: abd16f115328676e63144134d848db7679d1645bc4f441b6d7d51de22c946d2c
+ELF SHA256: f42aff2154825d41704cbc1678968a567fe0635db17bb74fa20a796dbb8ac5c8
+Original raw log SHA256: 37f6e622e4d0d98b2e46c27899c128bc8e69d27ec0e33de286d333f69f9ade6e
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W2_O/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W2_O/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=551414 load_x=22290 generate_brams=1024 load_w=158494 select_accumulate=524296 store_o=3788 load_w_and_select=524312
+QWEN_VERIFY_BINARY 16384
+
+[Binary FP32 output payload: 16384 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W2 GATE_UP: X[4,1024] * W[1024,3072] G=64
+Exact Python comparison: PASS 12288/12288
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: f16dbee603e72c502f1d221e53b2d378ab8d546192d521ffc6d4caaba62a4976
+Packed weights SHA256: c4bc6f1040ad66fedb698353f9356c18959b78181f520c24205868dbb91c2805
+Scales SHA256: 5b515ac12d42d3b9bb9a48517f804fdb6d60a24d7b0ee242022e5f3988e376cf
+Python expected SHA256: a8f8feda89e4cac1e617aee84f224fcaf3b178fbde1fdf14aab814e2935ba1da
+HW output SHA256: a8f8feda89e4cac1e617aee84f224fcaf3b178fbde1fdf14aab814e2935ba1da
+ELF SHA256: f7a2c4e2c1404e0172bbaada215b175c7eff971bdd4ab413e74984fc3c676929
+Original raw log SHA256: c8998477ab9200a44b062e1340980c14c3fa6363b18b70f43e7b5285aac2697d
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W2_GATE_UP/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W2_GATE_UP/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=825385 load_x=26799 generate_brams=512 load_w=210471 select_accumulate=786436 store_o=11630 load_w_and_select=786444
+QWEN_VERIFY_BINARY 49152
+
+[Binary FP32 output payload: 49152 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+
+================================================================================
+W2 DOWN: X[4,3072] * W[3072,1024] G=64
+Exact Python comparison: PASS 4096/4096
+Simulator exit: 0
+Native llama.cpp comparison: NOT PERFORMED (synthetic data)
+Input SHA256: 951227e4bded828b184b103845424c0d5b701a0ea490e3adf498ecc844d7300f
+Packed weights SHA256: 8c79538f6fd18ee2c61de6dfe42f67e4f7eeff9ef6ec47ded05bb1e228a07fd7
+Scales SHA256: 62c7601fc16f989ffc05957e5fbb9763ac7535f02517b1e85eeb4c145c89ebe3
+Python expected SHA256: 14a6844be8786d8ca0813e825cdb0dfc986bc7e3d42d8b26a7a6bf33784008b1
+HW output SHA256: 14a6844be8786d8ca0813e825cdb0dfc986bc7e3d42d8b26a7a6bf33784008b1
+ELF SHA256: c0c7d578b65f07ab2d7ae9a7a10cf08ef225779546255d0d155376eb21840621
+Original raw log SHA256: bf5b9bea86c2b57718b4e41a96f955c9be44ce611762dcd7c88045db652222a4
+Actual simulator command: ['/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/simulator-chipyard.harness-QwenVerifyRocketConfig', '+permissive', '+max-cycles=1000000000', '+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W2_DOWN/verify.riscv', '+permissive-off', '/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/runs/20261120-205010_B4_RF4_YS4_ID8_R4/W2_DOWN/verify.riscv']
+QWEN_VERIFY_GUARDS PASS
+QWEN_VERIFY_CYCLES total=825757 load_x=33861 generate_brams=1536 load_w=242405 select_accumulate=786444 store_o=3892 load_w_and_select=786468
+QWEN_VERIFY_BINARY 16384
+
+[Binary FP32 output payload: 16384 bytes; retained in raw_verilator_logs.tar.gz]
+
+QWEN_VERIFY_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_VERIFY/build/B4_RF4_YS4_ID8_7923259acd5d/sim/generated-src/chipyard.harness.TestHarness.QwenVerifyRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
