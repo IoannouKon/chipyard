@@ -6,3 +6,4 @@ B4_RF4_YS4_ID16_R4,4,4,4,16,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False
 B16_RF4_YS2_ID8_R4,16,4,2,8,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True
 B16_RF4_YS2_ID16_R4,16,4,2,16,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True
 B8_RF4_YS4_ID8_R4,8,4,4,8,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True
+B8_RF4_YS4_ID16_R4,8,4,4,16,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True

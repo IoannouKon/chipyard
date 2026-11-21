@@ -15,11 +15,13 @@ R=4; hardware capacity R=4, K=N=3072; 8-byte DMA beats; two weight buffers; perf
 | B16/RF4/YS2 | 8 | 15/15 PASS | 385,142,016 | 116,472,832 | 62,096,468 |
 | B16/RF4/YS2 | 16 | 15/15 PASS | 409,457,860 | 112,218,876 | 63,108,612 |
 | B8/RF4/YS4 | 8 | 15/15 PASS | 260,320,592 | 77,951,300 | 60,571,504 |
-| B8/RF4/YS4 | 16 | Pending | — | — | — |
+| B8/RF4/YS4 | 16 | 15/15 PASS | 259,321,216 | 72,981,776 | 59,604,356 |
+
+These results validate the pre-API/RoCC-refactor hardware and C adapter. The final configuration used a frozen copy with the same source hashes and compiled assembly as the first 105 tests; the newer local API/RoCC files were not substituted. Full source hashes and the elaborated configuration are recorded in each design log.
 
 ## How to read these results
 
-7 completed configurations, 105 exact-reference passes. Pending rows have no archived measurements yet.
+8 completed configurations, 120 exact-reference passes; no failures or pending cases.
 
 - `configurations.csv`: complete explicit build choices for each archived design.
 - `matmul_cycles.csv`: measured cycles per stage, dimensions, precision and exact-match counts for each matmul.
