@@ -1,0 +1,260 @@
+B4_RF4_YS4_ID16_R4 | scaled | current RTL / RoCC ABI v2
+Full configuration: {'design': 'B4_RF4_YS4_ID16_R4', 'B': '4', 'RF': '4', 'YS': '4', 'DMA_ID': '16', 'mode': 'scaled', 'FP_ACTIVATIONS': 'True', 'FP_BITS': '32', 'OutBitWidth': '32', 'WBitWidth': '8', 'minWeightBits': '2', 'minInputBits': '8', 'INT_BITS': '16', 'num_filters': '1', 'Rin': '4', 'Cin': '3072', 'Cout': '3072', 'DMA_Bytes': '8', 'W_BUFFS': '2', 'BRAM_OUTPUTS': 'True', 'GROUP_SCALE_DEFERRED': 'True', 'GROUP_SCALE_ALIGNED': 'False', 'SKIP_ZERO_WEIGHTS': 'False', 'FLEXIBLE_BANK_GROUPING': 'False', 'EARLY_WEIGHT_BUFFER_RELEASE': 'False', 'WEIGHT_DMA_BURSTS': 'False', 'MAX_WEIGHT_BURST_BYTES': '32', 'DEBUG': 'True', 'legacy_SCALE': 'REMOVED_FROM_CURRENT_RTL_NO_INTEGER_SCALING'}
+GROUP_SCALE_DEFERRED=True; GROUP_SCALE_ALIGNED=False; scale format=FP16
+15/15 exact-reference PASS; original simulator logs, output/expected bytes, command lines and verification records: evidence.tar.gz
+
+================================================================================
+W8_DOWN: 4x3072 * 3072x1024; G=32
+Exact matches: 4096/4096 PASS; simulator exit 0; guards PASS
+Input SHA256: 45cd9c27097de15a5e31f68ee9ee7dcd7b0c4da599ea7bf54e392c06cb185d0f
+Weights SHA256: 7603108a53ced8b3cd456a16d7c16d3bc1a5b5fe0ebb37e86fccd024a1dad2ff
+HW output SHA256: d6a35ea1142158f0c05f37b1a4cef8bda279663151ce68f66f622e26df78f6e4
+Original simulator log SHA256: 5aeb907d3e358d696443e50a7b7477ee7d70899cc7f1536d7d64f56bd20f8b54
+BENCH_GUARDS PASS
+BENCH_CYCLES total=3127189 load_x=57519 generate_brams=49920 load_w=2887001 select_accumulate=1247341 store_o=4521 load_w_and_select=3015229
+BENCH_BINARY 16384
+
+[Original 16384-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W8_GATE_UP: 4x1024 * 1024x3072; G=32
+Exact matches: 12288/12288 PASS; simulator exit 0; guards PASS
+Input SHA256: 5486ecf060f090998b8772eb77fd38c2f1ebcd1063d8b16d2a43423ab4fec3b0
+Weights SHA256: 8940d55bdc7818ec2efaa09cdfc5cf96e44947e9a0adcd576b390e0793ee893c
+HW output SHA256: 5ed777d66f82069998edcc4bfd469eb246f87a6dc6d7dd40b5b3e766b8665ad2
+Original simulator log SHA256: 3733661cb0ad24a52263880bf88f4ca8b4907e214ece6912b26a872c21dec815
+BENCH_GUARDS PASS
+BENCH_CYCLES total=3374520 load_x=44131 generate_brams=16640 load_w=3191726 select_accumulate=1223839 store_o=13504 load_w_and_select=3300245
+BENCH_BINARY 49152
+
+[Original 49152-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W8_K_V: 4x1024 * 1024x1024; G=32
+Exact matches: 4096/4096 PASS; simulator exit 0; guards PASS
+Input SHA256: a68b472b2fae821cf80e30be732ebf6abfeff63cf63c362bea8b22b276af3e2e
+Weights SHA256: 13e2fb4213de94b996ee93e1e900971aa13dae945f06941fca1df6498a0c5400
+HW output SHA256: a459975608df7a5680349b07e3b1490fc4cb99d015f244d99b8965ddddf4f039
+Original simulator log SHA256: 22e30ac626cf33065fe6763d5961bf46761b5377f0454540c49e0182cb7b4858
+BENCH_GUARDS PASS
+BENCH_CYCLES total=1064538 load_x=18464 generate_brams=16640 load_w=993291 select_accumulate=433986 store_o=4518 load_w_and_select=1024916
+BENCH_BINARY 16384
+
+[Original 16384-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W8_O: 4x2048 * 2048x1024; G=32
+Exact matches: 4096/4096 PASS; simulator exit 0; guards PASS
+Input SHA256: 7b17c6bf235c600f06b672b70a5b2400cbca2a8b89867c7f7d3aad2fa2aa8415
+Weights SHA256: 754eeae13b5a0af382aa8a0acdbf79b179b5eff34ce8ee2e645c6d7125a18462
+HW output SHA256: 38c00f25b360d5533715b3039ca737573262bf7f468c493b98b054ace50e1c5d
+Original simulator log SHA256: 0486660947e224e9e9c7b47e92d2f4fc46c88f7d832607ba1a6ada7bd4e2ad54
+BENCH_GUARDS PASS
+BENCH_CYCLES total=2244868 load_x=37162 generate_brams=33280 load_w=2101338 select_accumulate=823527 store_o=4520 load_w_and_select=2169906
+BENCH_BINARY 16384
+
+[Original 16384-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W8_Q: 4x1024 * 1024x2048; G=32
+Exact matches: 8192/8192 PASS; simulator exit 0; guards PASS
+Input SHA256: f2591f726f171a3942b95d44fb6dc655ab71e5716e0c6091e19f4fb9b76af74b
+Weights SHA256: d2fbd3bbd22d298f6caa6f8991d8fc8b438358634a3a5f970e24f2fc798b6373
+HW output SHA256: f67617f7ee01e03cb30b240c5764c562082bc8d2fd9179c59dfd9ec3ec92a402
+Original simulator log SHA256: 944e8522f19e88bc2cf34b256333d96d4b21a9ad41b589b49d8ee001abb11ae7
+BENCH_GUARDS PASS
+BENCH_CYCLES total=2222813 load_x=30440 generate_brams=16640 load_w=2098058 select_accumulate=825301 store_o=9016 load_w_and_select=2166717
+BENCH_BINARY 32768
+
+[Original 32768-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W4_DOWN: 4x3072 * 3072x1024; G=32
+Exact matches: 4096/4096 PASS; simulator exit 0; guards PASS
+Input SHA256: feb26774e6b874c61eea3fc59002d00714e7e41d666ad89cdd0a80561f92190f
+Weights SHA256: 2e25bc3da6183f09a768a74b419c806cc5c64478394c0265d41a4b285f97f15e
+HW output SHA256: 4ae8d892d7d207e223fa5ee6522988b39ae632cffbe124cee2884a369de02dfd
+Original simulator log SHA256: 277856b975b8165ef91faedd9595ee268045bee9628b99fe583a594911a7160d
+BENCH_GUARDS PASS
+BENCH_CYCLES total=842498 load_x=48494 generate_brams=3840 load_w=628433 select_accumulate=786482 store_o=3586 load_w_and_select=786578
+BENCH_BINARY 16384
+
+[Original 16384-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W4_GATE_UP: 4x1024 * 1024x3072; G=32
+Exact matches: 12288/12288 PASS; simulator exit 0; guards PASS
+Input SHA256: 065870ddffdb34f57553916bac7eecc4826377be6d61488182de9f7a28155d50
+Weights SHA256: a2b83ad9567d9f4bb0696d43451c405f6799a621d49f7550d56027c56aebb2e2
+HW output SHA256: 9bcb647f9905f48356e4be0e8a016d31a25fe258dc98fd7d5c155ebe13496fc4
+Original simulator log SHA256: 3d4eeba3ef865bdbcb5b28955bd3ac71fcfc7eba1e7bf563cbafb5ed37eb9dc6
+BENCH_GUARDS PASS
+BENCH_CYCLES total=841217 load_x=40906 generate_brams=1280 load_w=677495 select_accumulate=786458 store_o=12541 load_w_and_select=786490
+BENCH_BINARY 49152
+
+[Original 49152-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W4_K_V: 4x1024 * 1024x1024; G=32
+Exact matches: 4096/4096 PASS; simulator exit 0; guards PASS
+Input SHA256: 82b256a5dc733664b7c22526600ec319003c264b73dd2dea706a42ca3c5c320d
+Weights SHA256: 42ee2f20ddedeba61c17da49c1d22eac71df4eba957f2675d57a198b79abb070
+HW output SHA256: 4cd98c96465b5472ff192f452c5d935a267a040a271bc31594d4e99599c10e8a
+Original simulator log SHA256: dc4796846d8f4760b11672d6e494c29f4f81041a451db74c33425308775179e5
+BENCH_GUARDS PASS
+BENCH_CYCLES total=281927 load_x=14962 generate_brams=1280 load_w=189867 select_accumulate=262160 store_o=3493 load_w_and_select=262192
+BENCH_BINARY 16384
+
+[Original 16384-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W4_O: 4x2048 * 2048x1024; G=32
+Exact matches: 4096/4096 PASS; simulator exit 0; guards PASS
+Input SHA256: 2285898b469e59baf78f8e3739f9bda0deaaaf7d750d0a18105dab403d1b22ec
+Weights SHA256: 9179f927612a4d848e216d6161c93ec26144e44924c73c29ef27617c5824b64b
+HW output SHA256: dc39caec05bdae9ebf11668fd396143c2a08191f73dde745674dc5dccbd059b5
+Original simulator log SHA256: 64e9a827d6989c2f0bb4c13b94e17aa3e85625e9f765b63899119b0c83c1debc
+BENCH_GUARDS PASS
+BENCH_CYCLES total=561568 load_x=30787 generate_brams=2560 load_w=435832 select_accumulate=524320 store_o=3837 load_w_and_select=524384
+BENCH_BINARY 16384
+
+[Original 16384-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W4_Q: 4x1024 * 1024x2048; G=32
+Exact matches: 8192/8192 PASS; simulator exit 0; guards PASS
+Input SHA256: a41aec0ddd9dbcf82f466342e1502060d804aefa5b72af2701df7a4c96ae2ac0
+Weights SHA256: de407b9bfb00c1c2fecedff612c22874a2ca64115aa5b98ad4f430c69afe9140
+HW output SHA256: 417f865e4d283c83defb827d37f826e5a8048fdc40300974407c8cf6159e255e
+Original simulator log SHA256: 07791ccc7229bb408152b2d604ef672117a58abd5ffd468a7817aa48dd29df60
+BENCH_GUARDS PASS
+BENCH_CYCLES total=561062 load_x=27093 generate_brams=1280 load_w=433663 select_accumulate=524310 store_o=8347 load_w_and_select=524342
+BENCH_BINARY 32768
+
+[Original 32768-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W2_DOWN: 4x3072 * 3072x1024; G=64
+Exact matches: 4096/4096 PASS; simulator exit 0; guards PASS
+Input SHA256: 951227e4bded828b184b103845424c0d5b701a0ea490e3adf498ecc844d7300f
+Weights SHA256: 8c79538f6fd18ee2c61de6dfe42f67e4f7eeff9ef6ec47ded05bb1e228a07fd7
+HW output SHA256: 14a6844be8786d8ca0813e825cdb0dfc986bc7e3d42d8b26a7a6bf33784008b1
+Original simulator log SHA256: 9521b41eecf94c04c0ff4ac7496e112decdf95d04d85e5080ba7e22aedcf9222
+BENCH_GUARDS PASS
+BENCH_CYCLES total=819533 load_x=27574 generate_brams=1536 load_w=236572 select_accumulate=786444 store_o=3955 load_w_and_select=786468
+BENCH_BINARY 16384
+
+[Original 16384-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W2_GATE_UP: 4x1024 * 1024x3072; G=64
+Exact matches: 12288/12288 PASS; simulator exit 0; guards PASS
+Input SHA256: f16dbee603e72c502f1d221e53b2d378ab8d546192d521ffc6d4caaba62a4976
+Weights SHA256: c4bc6f1040ad66fedb698353f9356c18959b78181f520c24205868dbb91c2805
+HW output SHA256: a8f8feda89e4cac1e617aee84f224fcaf3b178fbde1fdf14aab814e2935ba1da
+Original simulator log SHA256: 2de7347a907a9339ac34dff08e04e4ce1a66d92bd827658ff243576ea057cf00
+BENCH_GUARDS PASS
+BENCH_CYCLES total=819510 load_x=21278 generate_brams=512 load_w=218327 select_accumulate=786436 store_o=11276 load_w_and_select=786444
+BENCH_BINARY 49152
+
+[Original 49152-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W2_K_V: 4x1024 * 1024x1024; G=64
+Exact matches: 4096/4096 PASS; simulator exit 0; guards PASS
+Input SHA256: fdd22f65911c0842a033248c0e35d9a71bb2079df564d777d50854a82cd78553
+Weights SHA256: 394cdf1a69930eb0fb4039e4fd4b35c0662c322a86c2548fa312dfd04c9044d6
+HW output SHA256: 376b842813e51eec702610687b106a77eeb1c3651fc49cf7a554a828839512f5
+Original simulator log SHA256: 021187d7beb0723c19badcff115ba893f9af15e10a5cc6e951b24cf113c5c618
+BENCH_GUARDS PASS
+BENCH_CYCLES total=273866 load_x=8219 generate_brams=512 load_w=65315 select_accumulate=262148 store_o=2979 load_w_and_select=262156
+BENCH_BINARY 16384
+
+[Original 16384-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W2_O: 4x2048 * 2048x1024; G=64
+Exact matches: 4096/4096 PASS; simulator exit 0; guards PASS
+Input SHA256: 97fa7b10c713facfff867e86f938fe527247f3f325a6179dae34d5b40f96adb9
+Weights SHA256: a23d0575bb43cd57d43d6ed239dd5fa8812ef899bc32063503d3b84d001856d8
+HW output SHA256: abd16f115328676e63144134d848db7679d1645bc4f441b6d7d51de22c946d2c
+Original simulator log SHA256: e6912061854ebb08f130ae0ee7d1787a3b1decb4c83238405375739c84bf0a16
+BENCH_GUARDS PASS
+BENCH_CYCLES total=546754 load_x=17808 generate_brams=1024 load_w=153285 select_accumulate=524296 store_o=3610 load_w_and_select=524312
+BENCH_BINARY 16384
+
+[Original 16384-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
+================================================================================
+W2_Q: 4x1024 * 1024x2048; G=64
+Exact matches: 8192/8192 PASS; simulator exit 0; guards PASS
+Input SHA256: bd31a6b6bfd8d358826c6442bdaf6ed5fcacc5fd2ba0a3b6729954e5afeea842
+Weights SHA256: 38335448196b5aba8854c8c4bfab3c546e527a69b7e33c73db39a31e5f9d3c4d
+HW output SHA256: 82bd63ab13adc38ee25d4f2940116d4152777e5d07829299825476ab3a9ac36b
+Original simulator log SHA256: e52e133e6c6c1a4859d6abdcb07b4f246d05e789d95822fa8bda2e58dc091ae3
+BENCH_GUARDS PASS
+BENCH_CYCLES total=545877 load_x=14472 generate_brams=512 load_w=139948 select_accumulate=524292 store_o=6593 load_w_and_select=524300
+BENCH_BINARY 32768
+
+[Original 32768-byte FP32 payload retained in evidence.tar.gz]
+
+BENCH_END
+[UART] UART0 is here (stdin/stdout).
+- /home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/QWEN_UNSCALED_VERIFY/cache/build/B4_RF4_YS4_ID16_R4_scaled_fb696bf9fc05bfe0/sim/generated-src/chipyard.harness.TestHarness.QwenCompareRocketConfig/gen-collateral/TestDriver.v:158: Verilog $finish
+
