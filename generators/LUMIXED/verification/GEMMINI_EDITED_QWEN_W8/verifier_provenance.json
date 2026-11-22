@@ -1,0 +1,13 @@
+{
+  "source_sha256": {
+    "/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/GEMMINI_EDITED_QWEN_W8/run_benchmark.py": "c444b4b110ecfd326934028d8793aaab4eaadbc4909cc9e23cc1d7b3279b7cec",
+    "/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/GEMMINI_EDITED_QWEN_W8/verify_tiled_reference.py": "075c296b7c5701e5b7078d6a7f036c65c2c8171ced66a0d89a1376e92a3948f4",
+    "/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/GEMMINI_EDITED_QWEN_W8/test_mac.py": "933823f448906ece8b23bcc47400f2b570f690bca4d126738fa61e7f94301e28",
+    "/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/GEMMINI_EDITED_QWEN_W8/mac_unit.cpp": "f9f3118b3bc0d6e1f254aa928e3d309d17c4577c1c9540d137aa4761a74d4a1d",
+    "/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/GEMMINI_EDITED_QWEN_W8/acceptance.txt": "95a179c9024c3980732bfd126032c53929ff8f26e06e00fd05519b5b809a28b6",
+    "/home/kioannou/chipyard_1.15.0/generators/LUMIXED/software/tests/src/prepare_test_vectors.py": "f092c6337d11e9628d60bfa9cb85418efd23d0ba7af8ff9d2260afc7afc39df7"
+  },
+  "mathematical_reference": "Exact integer at quantum 2^-149; one FP32 RNE at end",
+  "tiled_fp32_reference": "Exact integer RNE to 24 significand bits at each DIM-wide accumulator update for captured dyadic inputs; bit-exact gate",
+  "acceptance_not_relaxed": true
+}

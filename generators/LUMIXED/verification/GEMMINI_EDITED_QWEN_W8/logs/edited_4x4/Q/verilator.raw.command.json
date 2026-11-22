@@ -1,0 +1,8 @@
+[
+  "/tmp/gemmini-edited-115/simulator-EditedGemmini4RocketConfig",
+  "+permissive",
+  "+max-cycles=1000000000",
+  "+loadmem=/home/kioannou/chipyard_1.15.0/generators/LUMIXED/verification/GEMMINI_EDITED_QWEN_W8/logs/edited_4x4/Q/test.riscv",
+  "+permissive-off",
+  "/home/kioannou/chipyard_1.15.0/generators/LUMIXED/verification/GEMMINI_EDITED_QWEN_W8/logs/edited_4x4/Q/test.riscv"
+]

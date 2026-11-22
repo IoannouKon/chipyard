@@ -1,0 +1,3 @@
+accelerator,configuration,arithmetic,estimated_196_projection_invocation_cycles,estimated_196_projection_active_cycles
+Gemmini Edited,4x4_SP32_ACC4_ID16,FP32 x signed W8,163487884,163439752
+Gemmini Edited,8x8_SP32_ACC4_ID16,FP32 x signed W8,80147088,80097024

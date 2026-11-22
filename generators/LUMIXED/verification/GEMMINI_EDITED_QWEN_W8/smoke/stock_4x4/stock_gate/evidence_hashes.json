@@ -1,0 +1,18 @@
+{
+  "compile.command.json": "1c729c73024c48cbc2b089778837398ed0d25f37829af190241ebe098e01f7ee",
+  "compile.log": "f711c0a2fc1e7d5747128b93470614ee97d9a66eec18e16c9e7e3594e35caa65",
+  "expected_rne.bin": "470e95ce71f5eafe1414122a65f135b6c29ca74a80df590bf9def7a0bd8843f7",
+  "gemmini_edited.h": "9276d8b3967077fb39a1c1b5e0be41e49f5f50811ad73b5c190c888b6d6d7750",
+  "harness.c": "52e62fa54c576db158fdce8bb604eb004378faf22b360ec39ee1458adaa778dd",
+  "include/gemmini_params.h": "f9440c73bf3d02b1b4a0663a9a222ff1c0311c3d76dc4f3db220c6d6bacbb090",
+  "output.bin": "470e95ce71f5eafe1414122a65f135b6c29ca74a80df590bf9def7a0bd8843f7",
+  "result.json": "7e4a6d31e0e81760a2c072af7c761a78e77949736a756021f2d425ead2b91047",
+  "rocc-software/src/xcustom.h": "9582eb00cee774e4680fde6408a0d607bba85196a0a4fd803f7b7ddd801aad69",
+  "test.riscv": "9e7cf3f2cc8c423a0a9995a6bcc3ca01b2abda384a3ba424c2a0059639d7d882",
+  "vectors.S": "6cdaf47934afa3938bb688ae6417439c6d65c149417c1a34d1c441cfb1a23916",
+  "verification.json": "1317fa60a10e8c591d5e35448d2fcd6381254d8421576af6fb0e8ae38886fa4e",
+  "verilator.raw.command.json": "1efe632944354a76691eebead91e792a50655f4c3486315a4f11dc5e26ca0fd7",
+  "verilator.raw.log": "cd9244ba88c007dc170000076d8e43a05eaac9a9c87bd5ab47e852af21d03cca",
+  "w.bin": "9b366dbc57eb38372152c78ac61668ef0b3d99280be6cb1aba2de57d42b37ded",
+  "x.bin": "1c6d6da5d2996f8a908836f9287a0029b97ef82ba79e57400a0971521d6d7200"
+}

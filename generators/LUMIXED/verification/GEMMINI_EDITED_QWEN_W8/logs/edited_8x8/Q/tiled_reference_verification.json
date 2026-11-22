@@ -1,0 +1,14 @@
+{
+  "summary": {
+    "configuration": "edited_8x8",
+    "projection": "Q",
+    "elements": 8192,
+    "exact_tiled_fp32_matches": 8192,
+    "mismatches": 0,
+    "result": "PASS",
+    "reference_sha256": "d527546575316c557458da28eb2ec6895855b4314a6d9d31a0110dab0c34f91e",
+    "seconds": 2.425
+  },
+  "mismatches": [],
+  "method": "Exact, independent two-level FP32 reference for these captured dyadic inputs.\n\nThis supplements, and does not change, the predeclared mathematical-error bound.\nEvery input is an exact multiple of 2^-12 with magnitude <=1. With DIM<=8 and\nsigned W8, every product and every PE tile partial is exact in FP32 (integer\nmagnitude <=8*4096*128 <2^24). Only accumulator additions can round. Model each\nascending K tile's accumulator addition with integer RNE to 24 significant bits.\nNo HW outputs or measured errors participate in calculating expected values.\n"
+}

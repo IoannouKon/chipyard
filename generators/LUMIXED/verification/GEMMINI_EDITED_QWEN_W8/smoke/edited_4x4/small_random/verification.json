@@ -1,0 +1,375 @@
+{
+  "metrics": {
+    "elements": 36,
+    "accepted": 36,
+    "exact_bit_matches": 36,
+    "max_absolute_error": 0.0,
+    "max_relative_error": 0.0,
+    "rmse": 0.0,
+    "max_ulp_error": 0,
+    "result": "PASS",
+    "acceptance": "Exact bits for directed K=1; otherwise predeclared gamma_(3K+2) bound against exact-real sum"
+  },
+  "values": [
+    {
+      "index": 0,
+      "hw_bits": "4428ccf0",
+      "exact_rne_bits": "4428ccf0",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 1,
+      "hw_bits": "c311f490",
+      "exact_rne_bits": "c311f490",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 2,
+      "hw_bits": "43958980",
+      "exact_rne_bits": "43958980",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 3,
+      "hw_bits": "43b65380",
+      "exact_rne_bits": "43b65380",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 4,
+      "hw_bits": "c415cb8c",
+      "exact_rne_bits": "c415cb8c",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 5,
+      "hw_bits": "433d9350",
+      "exact_rne_bits": "433d9350",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 6,
+      "hw_bits": "c3d6deb0",
+      "exact_rne_bits": "c3d6deb0",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 7,
+      "hw_bits": "41aab580",
+      "exact_rne_bits": "41aab580",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 8,
+      "hw_bits": "438c80f8",
+      "exact_rne_bits": "438c80f8",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 9,
+      "hw_bits": "c2577380",
+      "exact_rne_bits": "c2577380",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 10,
+      "hw_bits": "c1ec3900",
+      "exact_rne_bits": "c1ec3900",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 11,
+      "hw_bits": "c1c4d480",
+      "exact_rne_bits": "c1c4d480",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 12,
+      "hw_bits": "c301fbd0",
+      "exact_rne_bits": "c301fbd0",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 13,
+      "hw_bits": "c24fb880",
+      "exact_rne_bits": "c24fb880",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 14,
+      "hw_bits": "c1fc9b80",
+      "exact_rne_bits": "c1fc9b80",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 15,
+      "hw_bits": "c2b60c20",
+      "exact_rne_bits": "c2b60c20",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 16,
+      "hw_bits": "c3bebc68",
+      "exact_rne_bits": "c3bebc68",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 17,
+      "hw_bits": "4253b380",
+      "exact_rne_bits": "4253b380",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 18,
+      "hw_bits": "c35b9140",
+      "exact_rne_bits": "c35b9140",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 19,
+      "hw_bits": "43c8f150",
+      "exact_rne_bits": "43c8f150",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 20,
+      "hw_bits": "43549de0",
+      "exact_rne_bits": "43549de0",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 21,
+      "hw_bits": "43864b68",
+      "exact_rne_bits": "43864b68",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 22,
+      "hw_bits": "43af67b8",
+      "exact_rne_bits": "43af67b8",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 23,
+      "hw_bits": "c3b1ab58",
+      "exact_rne_bits": "c3b1ab58",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 24,
+      "hw_bits": "42d11c20",
+      "exact_rne_bits": "42d11c20",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 25,
+      "hw_bits": "438bfdb8",
+      "exact_rne_bits": "438bfdb8",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 26,
+      "hw_bits": "42b74ce0",
+      "exact_rne_bits": "42b74ce0",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 27,
+      "hw_bits": "c3295cf0",
+      "exact_rne_bits": "c3295cf0",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 28,
+      "hw_bits": "434e68f0",
+      "exact_rne_bits": "434e68f0",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 29,
+      "hw_bits": "c2163a40",
+      "exact_rne_bits": "c2163a40",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 30,
+      "hw_bits": "41d36100",
+      "exact_rne_bits": "41d36100",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 31,
+      "hw_bits": "c1da2e80",
+      "exact_rne_bits": "c1da2e80",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 32,
+      "hw_bits": "41fb9100",
+      "exact_rne_bits": "41fb9100",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 33,
+      "hw_bits": "43a351e0",
+      "exact_rne_bits": "43a351e0",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 34,
+      "hw_bits": "41cfab00",
+      "exact_rne_bits": "41cfab00",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    },
+    {
+      "index": 35,
+      "hw_bits": "434b7070",
+      "exact_rne_bits": "434b7070",
+      "pass_value": true,
+      "absolute_error_vs_real": 0.0,
+      "relative_error_vs_real": 0.0,
+      "ulp_vs_rne": 0,
+      "finite": true
+    }
+  ]
+}

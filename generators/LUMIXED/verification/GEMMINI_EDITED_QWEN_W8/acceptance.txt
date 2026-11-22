@@ -1,0 +1,12 @@
+PREDECLARED BEFORE FULL RESULTS
+Mixed arithmetic: RNE32(RNE32(FP32_activation * signed_int8) + FP32_partial).
+Scratchpad accumulator combines rounded tile partial sums with FP32 RNE addition.
+No FP16 conversion. Finite benchmark inputs and outputs required.
+Reference: arbitrary-precision exact-real dot product; FP32_RNE(exact) for bit/ULP metrics.
+Numerical acceptance: |HW - exact_real| <= gamma_m * sum_k |X_k W_k| + m*2^-149,
+where m=3*K+2, u=2^-24, gamma_m=m*u/(1-m*u). Includes K product rounds,
+at most K PE additions and ceil(K/DIM) accumulator additions; zero padding exact.
+Guard buffers intact, all elements present, no nonfinite output, simulator exit zero.
+No tolerance changes based on observed results. Report exact-bit matches separately.
+Special directed products/NaNs/Inf/subnormal/rounding tested separately from finite benchmark rule.
+Stock GEMMINI_EDITED=false is gated separately with a standard FP32 matmul smoke test; no unexecuted integer/mesh regression is claimed.

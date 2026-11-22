@@ -1,0 +1,11 @@
+[
+  "make",
+  "-C",
+  "/home/kioannou/chipyard_1.15.0/sims/verilator",
+  "-j2",
+  "CONFIG=StockGemminiFP32RocketConfig",
+  "NUMACTL=0",
+  "CLASSPATH_CACHE=/tmp/gemmini-edited-115/classpath",
+  "gen_dir=/tmp/gemmini-edited-115/generated-src",
+  "sim=/tmp/gemmini-edited-115/simulator-StockGemminiFP32RocketConfig"
+]

@@ -1,0 +1,8 @@
+{
+  "simulator": "Verilator emitted FPIntMac RTL",
+  "tested": 21296,
+  "failed": 0,
+  "reference": "Arbitrary-precision FP32 product RNE then FP32 sum RNE",
+  "nan_comparison": "NaN class; payload canonicalization not required",
+  "vectors_sha256": "0c171e2090919755881fb209954c18bcd026c7da5b36248e01d784a15f73831d"
+}
