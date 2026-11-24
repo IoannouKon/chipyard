@@ -90,7 +90,10 @@ class GroupScaleEngine(banks: Int, rows: Int, columns: Int, maxK: Int,
   io.out.bits.column := RegEnable(tag.column, readValid)
   io.out.bits.first := RegEnable(tag.initialize, readValid)
   for (y <- 0 until rows) {
-    val product = tag.partial(y) * signedSig
+    val multiplier = Module(new ExactScaleMultiplier(partialWidth, signedSig.getWidth))
+    multiplier.io.partial := tag.partial(y)
+    multiplier.io.scale_sig := signedSig
+    val product = multiplier.io.product
     val shifted = (product.pad(outputWidth) << FP16Activation.shift(scale))(outputWidth - 1, 0).asSInt
     io.out.bits.delta(y) := RegEnable(Mux(tag.initialize, 0.S, shifted), readValid)
   }
