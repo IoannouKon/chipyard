@@ -1,3 +1,5 @@
+> **Historical pre-fix baseline.** Updated scaled ID8 synthesis results with the mixed-width multiplier fix are in [Synthesis_Scale_Fix](../Synthesis_Scale_Fix/README.md).
+
 # Vivado post-synthesis resources — 18 designs
 
 All **18/18** completed synthesis using **Vivado 2023.2**, common part
