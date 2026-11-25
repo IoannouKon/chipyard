@@ -1,0 +1,7 @@
+design,status,stage,part,threads,target_mhz,worst_setup_slack_ns,worst_hold_slack_ns,internal_setup_slack_ns,internal_hold_slack_ns,estimated_internal_setup_fmax_mhz,dynamic_power_w_vectorless,static_power_w_vectorless,total_power_w_vectorless,power_confidence,no_clock_endpoints,unconstrained_internal_endpoints,lut_total,lut_logic,lut_memory,ff,dsp,bram36,bram18,uram
+gemmini_edited_4_4_W8_R4,ROUTED_TIMING_FAIL,post_route,xcu250-figd2104-2-e,8,50,-5.419,-3.346,-5.419,0.009,39.341,0.213,2.948,3.161,Medium,0,0,55428,52636,2792,27151,169,0,64,0
+gemmini_edited_8_8_W8_R4,ROUTED_TIMING_FAIL,post_route,xcu250-figd2104-2-e,8,50,-4.724,-3.555,-4.724,0.010,40.447,0.282,2.949,3.231,Medium,0,0,130998,121633,9365,46732,224,0,0,0
+lumixed_scaled_B8_RF8_YS2_ID8_R4,ROUTED_TIMING_FAIL,post_route,xcu250-figd2104-2-e,8,50,2.106,-3.217,2.106,0.012,55.885,0.435,2.955,3.39,Medium,0,0,80215,77170,3045,13951,36,177,0,20
+lumixed_scaled_B4_RF4_YS4_ID8_R4,ROUTED_TIMING_FAIL,post_route,xcu250-figd2104-2-e,8,50,4.439,-2.599,4.439,0.010,64.263,0.454,2.957,3.411,Medium,0,0,84921,81960,2961,16343,70,169,0,40
+lumixed_scaled_B8_RF4_YS4_ID8_R4,ROUTED_TIMING_FAIL,post_route,xcu250-figd2104-2-e,8,50,3.5,-2.598,3.500,0.010,60.606,0.636,2.961,3.597,Medium,0,0,161623,155858,5765,25114,70,209,0,40
+lumixed_scaled_B16_RF4_YS2_ID8_R4,ROUTED_TIMING_FAIL,post_route,xcu250-figd2104-2-e,8,50,2.217,-3.187,2.217,-0.006,56.233,0.746,2.962,3.708,Medium,0,0,168523,162590,5933,22941,36,225,0,20
