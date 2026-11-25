@@ -1,0 +1,8 @@
+resource,baseline_group_scale_ys4,new_group_scale_ys2,change
+dsp,70,36,-34
+scaling_engine_dsp,69,35,-34
+lut_total,164287,162363,-1924
+ff,25134,25152,18
+bram36,209,209,0
+bram18,0,0,0
+uram,40,40,0
