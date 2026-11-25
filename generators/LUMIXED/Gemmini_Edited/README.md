@@ -17,6 +17,70 @@ The supplied configurations are `EditedGemmini4RocketConfig` and
 eight counters. `StockGemminiFP32RocketConfig` exercises the flag-OFF path.
 This port validates W8 only.
 
+### Archived-baseline-compatible FP32 4x4 selector
+
+`EditedGemmini4BaselineRocketConfig` selects the closest FP32 counterpart of the
+archived Chipyard 1.13 FP16/W8 4x4 configuration that closed 50 MHz on ZCU106.
+It keeps the existing FP32 mixed MAC and changes only these hardware settings
+relative to `EditedGemmini4RocketConfig`:
+
+```scala
+max_in_flight_mem_reqs = 8
+acc_read_small_width = false
+has_dw_convs = false
+```
+
+The header is separately named `gemmini_edited_fp32_w8_4_baseline_id8.h`.
+The original 4x4/8x8 ID16 selectors and `GEMMINI_EDITED=false` are preserved.
+This is WS-only, FP32 activations, signed W8, FP32 accumulation/output; input,
+accumulator and output scaling, bias, pooling and nonlinear functions are OFF.
+SP32 KiB/ACC4 KiB, four SP banks, one ACC bank, 64-bit DMA, 64-byte maximum
+transactions, tile latency 2, eight counters and disabled clock gating match
+the archived baseline. DMA IDs are per separate read/write pool.
+
+Select it through the normal Chipyard entry point:
+
+```bash
+cd sims/verilator
+make CONFIG=EditedGemmini4BaselineRocketConfig verilog
+```
+
+The local ZCU106 platform also provides `EditedGemmini4Baselinezcu106`:
+
+```bash
+cd fpga
+make SUB_PROJECT=LUMIXEDzcu106 CONFIG=EditedGemmini4Baselinezcu106 verilog
+```
+
+`SUB_PROJECT=LUMIXEDzcu106` selects the existing board platform, while `CONFIG`
+chooses Gemmini instead of LUMIXED. `verilog` stops before Vivado implementation.
+The ZCU106 platform files remain local/uncommitted separately from this port.
+
+FP32 inherently changes activation SRAM slots from 16 to 32 bits, halving
+activation element capacity at fixed SP32 KiB and doubling activation bytes.
+The significand multiplier is 24x8 rather than 11x8 and the FP32 product requires
+RNE before FP32 addition. These precision effects cannot be removed while
+preserving genuine FP32 input support. Historical full-SoC ZCU106 timing/power
+and current accelerator-only U250 OOC results are separate environments; the historical result does not establish timing/power for these FP32 configurations.
+Fresh U250 implementation is archived in
+[Gemmini_Baseline_ID8](../Hardware_Estimation/Gemmini_Baseline_ID8/README.md).
+
+Quick validation of the baseline-compatible selector: Scala parameter assertions,
+real Chipyard RTL elaboration and the ZCU106 selector compilation passed. The
+elaborated array contains 16 FP32/W8 MACs. Its fresh MAC RTL passed 21,296 directed
+and random Verilator vectors against an arbitrary-precision two-round FP32
+reference. Identity transport modules may retain `Scale`/`Multiplier` names;
+their configured arithmetic scaling is bypassed. No full-accelerator DMA-ID8
+simulation was rerun. Fresh Vivado implementation completed; both arrays routed,
+but neither closes overall timing due to boundary hold violations.
+
+The matching 8x8 selector is `EditedGemmini8BaselineRocketConfig` (FPGA:
+`EditedGemmini8Baselinezcu106`). It retains the same ID8, SP32/ACC4, WS-only,
+no-scaling settings and changes the array dimensions to 8x8. The original ID16
+comparison selectors remain available. Both new selectors passed Scala parameter
+assertions and the FPGA selector compilation. Fresh synthesis and implementation completed on U250; see the linked PPA
+archive for setup/hold and power. Historical 50 MHz timing remains separate.
+
 `src/main/scala/gemmini/` contains the 16 new/modified Gemmini source files for
 review. `gemmini.patch` applies those changes to the pinned upstream submodule.
 `chipyard/` contains the matching Chipyard configuration. These archived Scala

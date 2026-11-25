@@ -11,3 +11,12 @@ class EditedGemmini8RocketConfig extends Config(
 class StockGemminiFP32RocketConfig extends Config(
   new gemmini.GemminiEditedConfig(GEMMINI_EDITED = false) ++
   new chipyard.RocketConfig)
+
+// Archived 4x4/W8 baseline settings, with genuine FP32 activations and ID8.
+class EditedGemmini4BaselineRocketConfig extends Config(
+  new gemmini.GemminiEditedBaseline4FP32Config ++
+  new chipyard.RocketConfig)
+
+class EditedGemmini8BaselineRocketConfig extends Config(
+  new gemmini.GemminiEditedBaseline8FP32Config ++
+  new chipyard.RocketConfig)
