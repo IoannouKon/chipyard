@@ -2663,15 +2663,86 @@ def feature_vector(stage: str, f: dict, basis: str = 'legacy_stage_v8') -> list[
     raise KeyError(stage)
 
 
+def _shared_scaler_estimate(r, k, n, b, rf, ys, w, group_size, lanes, baseline_cycles):
+    """Analytical service/backlog estimate; not a FIFO/DMA cycle simulation.
+
+    Distribute the calibrated combined-stage budget over dense selection tokens.
+    Count bank fragments at group/window boundaries, then serialize their row
+    batches. Compare shared and full-parallel service on the SAME arrival stream.
+    This approximates overlap and end-of-window drain; actual bounded-FIFO
+    backpressure, RR ordering and bursty DMA require RTL calibration.
+    """
+    batches = (ys + lanes - 1) // lanes
+    capacity = rf * (1 << (8 - w))
+    window = b * capacity
+    windows = []
+    for begin in range(0, k, window):
+        size = min(window, k - begin)
+        span = min(capacity, (size + b - 1) // b)
+        fragments = {}
+        for bank in range(b):
+            start = bank * span
+            valid = min(span, max(0, size - start))
+            for position in range(valid):
+                absolute = begin + start + position
+                if (absolute + 1) % group_size == 0 or position + 1 == valid:
+                    fragments[position] = fragments.get(position, 0) + 1
+        windows.append((begin, span, fragments))
+    row_groups = (r + ys - 1) // ys
+    token_count = row_groups * n * sum(span for _, span, _ in windows)
+    spacing = baseline_cycles / max(1, token_count)
+    extra = 0.0
+    fragment_count = 0
+    for begin, span, fragments in windows:
+        # Initialization is issued once per column, in the first K window.
+        pattern = [(0, 1, True)] if begin == 0 else []
+        pattern += [(position, count, False) for position, count in sorted(fragments.items())]
+        pattern.sort(key=lambda item: item[0])  # Initialization wins ties.
+        period = span * spacing
+        def completion(batch_count):
+            finish = work = 0.0
+            for position, count, initialize in pattern:
+                cost = count * (1 if initialize else batch_count)
+                finish = max(finish, (position + 1) * spacing) + cost
+                work += cost
+            # Repeated identical columns: F[j] = max(F[j-1]+work, j*period+F[0]).
+            return finish + (n - 1) * max(period, work)
+        extra += row_groups * max(0.0, completion(batches) - completion(1))
+        fragment_count += row_groups * n * sum(fragments.values())
+    serial_work = fragment_count * (batches - 1)
+    added = min(serial_work, max(0, int(math.ceil(extra))))
+    return dict(
+        group_scale_ys=lanes, scaling_batches_per_fragment=batches,
+        scaling_fragment_vectors=fragment_count,
+        extra_scaler_service_cycles=serial_work,
+        estimated_added_controller_cycles=added,
+        extra_service_only_range=[0, serial_work],
+        sharing_range_scope='Analytical service envelope, not an RTL accuracy/confidence bound',
+        sharing_model_version='analytical-row-batches-v1',
+        sharing_validation='UNVALIDATED_CONTROLLER_ESTIMATE',
+        sharing_assumptions='Uniform selection arrivals within calibrated combined-stage budget; '
+                            'unbounded abstract fragment backlog; window drains; '
+                            'no exact FIFO/credit/RR/DMA timing simulation',
+    )
+
+
 def predict(r: int, k: int, n: int, b: int, rf: int, ys: int, ids: int,
             w: int, scaled: bool = False, calibration: str | Path | dict | None = None,
-            group_size: int | None = None, allow_extrapolation: bool = False) -> dict:
+            group_size: int | None = None, allow_extrapolation: bool = False,
+            group_scale_ys: int | None = None) -> dict:
     """Returns stage cycle estimates with the same core keys as Model.py.
 
     A calibrated configuration must be present. If no training JSON is available,
     fail explicitly; do not silently substitute measured results or guess a fixed
     speedup. Recalibrate using scripts/calibrate.py.
     """
+    lanes = ys if group_scale_ys is None else positive_int('GROUP_SCALE_YS', group_scale_ys)
+    positive_int('YS', ys)
+    if lanes > ys:
+        raise ValueError('GROUP_SCALE_YS must be between 1 and YS')
+    shared = scaled and lanes < ys
+    if shared and not allow_extrapolation:
+        raise ValueError('Shared scaling has no controller calibration; pass allow_extrapolation=True')
     expected_group = 64 if w == 2 else 32
     group_extrapolation = scaled and group_size is not None and group_size != expected_group
     if group_extrapolation and not allow_extrapolation:
@@ -2719,8 +2790,18 @@ def predict(r: int, k: int, n: int, b: int, rf: int, ys: int, ids: int,
     preds['load_w_and_select']=max(preds['load_w_and_select'],f['dense_selection_cycles'])
     preds['generate_brams']=f['exact_generation_cycles']
     stages={k:int(round(preds[k])) for k in STAGES}
+    sharing = {}
+    if shared:
+        sharing = _shared_scaler_estimate(r,k,n,b,rf,ys,w,f['group_size'],lanes,
+                                         stages['load_w_and_select'])
+        sharing['baseline_prediction_status'] = status
+        sharing['baseline_total_cycles'] = sum(stages.values())
+        sharing['baseline_load_w_and_select_cycles'] = stages['load_w_and_select']
+        stages['load_w_and_select'] += sharing['estimated_added_controller_cycles']
+        status = 'EXTRAPOLATED_SHARED_SCALER'
     total=sum(stages.values())
     return {
+        **sharing,
         'model_version':MODEL_VERSION,'prediction_status':status,
         'calibration_group':key,'R':r,'K':k,'N':n,'B':b,'RF':rf,'YS':ys,
         'DMA_ID':ids,'weight_bits':w,'group_scaled':bool(scaled),
@@ -2741,7 +2822,7 @@ def predict(r: int, k: int, n: int, b: int, rf: int, ys: int, ids: int,
 
 def compute_cycles_fp32(Rin, Cin, Cout, in_bits, w_bits, XS, YS, ID, *,
                         factor=4, buffers_w=2, DMA_WIDTH=64,
-                        group_scale_mode='off', group_size=None,
+                        group_scale_mode='off', group_size=None, group_scale_ys=None,
                         calibration=None, allow_extrapolation=False,
                         activation='fp32', **kwargs):
     """FP32-compatible adapter for the original Model.compute_cycles positional API.
@@ -2762,7 +2843,8 @@ def compute_cycles_fp32(Rin, Cin, Cout, in_bits, w_bits, XS, YS, ID, *,
         raise ValueError(f'Unsupported FP32 model options: {sorted(unsupported)}')
     z=predict(Rin,Cin,Cout,XS,factor,YS,ID,w_bits,
               scaled=(group_scale_mode=='on'),calibration=calibration,
-              group_size=group_size,allow_extrapolation=allow_extrapolation)
+              group_size=group_size,allow_extrapolation=allow_extrapolation,
+              group_scale_ys=group_scale_ys)
     z['activation']='fp32'
     return z
 
@@ -2981,11 +3063,15 @@ def _prediction_cli():
     for name in ('R','K','N','B','RF','YS','ID','W'):
         p.add_argument('--'+name.lower(),type=int,required=True)
     p.add_argument('--scale',choices=['on','off'],default='off')
+    p.add_argument('--group-scale-ys',type=int,default=None,
+                   help='Scaling multipliers, 1..YS; omitted means full parallelism')
+    p.add_argument('--group-size',type=int,choices=[32,64,128],default=None)
     p.add_argument('--calibration',type=Path,default=DEFAULT_CALIBRATION)
     p.add_argument('--allow-extrapolation',action='store_true')
     a=p.parse_args()
     print(json.dumps(predict(a.r,a.k,a.n,a.b,a.rf,a.ys,a.id,a.w,
                              scaled=a.scale=='on',calibration=a.calibration,
+                             group_size=a.group_size,group_scale_ys=a.group_scale_ys,
                              allow_extrapolation=a.allow_extrapolation),indent=2))
 
 

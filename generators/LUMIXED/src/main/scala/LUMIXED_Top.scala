@@ -537,7 +537,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   // The reader has its own cursor so SRAM latency is hidden while DMA stalls.
   val groupEngine = if (groupScaling) Some(Module(new GroupScaleEngine(
     if (params.GROUP_SCALE_ALIGNED) 1 else weightBanks, params.parallel_rows,
-    params.Cout, params.Cin, partialWidth, accumulatorWidth))) else None
+    params.Cout, params.Cin, partialWidth, accumulatorWidth, params.GROUP_SCALE_YS))) else None
   val groupWritePending = if (groupScaling) RegNext(groupEngine.get.io.out.valid, false.B) else false.B
   if (groupScaling) {
     val e = groupEngine.get

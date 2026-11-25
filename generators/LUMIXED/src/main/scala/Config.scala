@@ -27,7 +27,11 @@ case class LUMIXEDParams(
   FLEXIBLE_BANK_GROUPING:      Boolean = false,
   GROUP_SCALE_ALIGNED:         Boolean = false,
   GROUP_SCALE_DEFERRED:        Boolean = false,
+  GROUP_SCALE_YS:              Int = 1,
 ) {
+  require(GROUP_SCALE_YS >= 1 && GROUP_SCALE_YS <= parallel_rows,
+    "GROUP_SCALE_YS must be between 1 and parallel_rows")
+
   // Derived width: configure the beat size in bytes only.
   val DMA_bits: Int = DMA_Bytes * 8
   require(Set(16, 32).contains(FP_BITS), "FP_BITS must be 16 or 32")
@@ -87,6 +91,7 @@ object LUMIXED_Config {
     FLEXIBLE_BANK_GROUPING = false,
 
     // Mutually exclusive finite-FP activation / FP16-scale group-scaling implementations.
+    GROUP_SCALE_YS = 1, // Build-time scaling multipliers: 1..parallel_rows; full parallelism when equal.
     GROUP_SCALE_ALIGNED = false, // Clamp windows to quantization boundaries.
     GROUP_SCALE_DEFERRED = true, // Full windows; scale bank fragments. SW selects G=32/64/128 before each matmul (no rebuild); G stays fixed during the matmul.
 

@@ -12,7 +12,8 @@ import chisel3.util._
   * so arbitrarily ordered bank completions cannot overwrite an earlier sum.
   */
 class GroupScaleEngine(banks: Int, rows: Int, columns: Int, maxK: Int,
-                       partialWidth: Int, outputWidth: Int) extends Module {
+                       partialWidth: Int, outputWidth: Int, scaleRows: Int) extends Module {
+  require(scaleRows >= 1 && scaleRows <= rows, "Scaling lanes must be between 1 and rows")
   private val cw = math.max(1, log2Ceil(columns + 1))
   private val gw = math.max(1, log2Ceil((maxK + 31) / 32 + 1))
   private val entries = ((maxK + 31) / 32) * columns
@@ -72,30 +73,77 @@ class GroupScaleEngine(banks: Int, rows: Int, columns: Int, maxK: Int,
   val selected = Wire(Decoupled(new Fragment))
   selected.valid := initializes.io.deq.valid || arb.io.out.valid
   selected.bits := Mux(initializes.io.deq.valid, initializes.io.deq.bits, arb.io.out.bits)
-  selected.ready := true.B
-  initializes.io.deq.ready := true.B
-  arb.io.out.ready := !initializes.io.deq.valid
+  initializes.io.deq.ready := selected.ready
+  arb.io.out.ready := selected.ready && !initializes.io.deq.valid
   val index = selected.bits.group * io.columns + selected.bits.column
-  when(selected.valid && !selected.bits.initialize) { assert(index < entries.U, "Scale index exceeds capacity") }
-  val read = scales.read(index >> 2, selected.valid && !selected.bits.initialize)
-  val readValid = RegNext(selected.valid, false.B)
-  val tag = RegEnable(selected.bits, selected.valid)
-  val offset = RegEnable(index(1, 0), selected.valid)
+  when(selected.fire && !selected.bits.initialize) { assert(index < entries.U, "Scale index exceeds capacity") }
+  val read = scales.read(index >> 2, selected.fire && !selected.bits.initialize)
+  val readValid = RegNext(selected.fire, false.B)
+  val tag = RegEnable(selected.bits, selected.fire)
+  val offset = RegEnable(index(1, 0), selected.fire)
   val halves = VecInit((0 until 4).map(i => read(16 * i + 15, 16 * i)))
-  val scale = halves(offset)
-  when(readValid && !tag.initialize) { assert(!scale(14, 10).andR, "Group scales must be finite FP16") }
-  val sig = Cat(0.U(1.W), FP16Activation.significand(scale)).asSInt
-  val signedSig = Mux(scale(15), -sig, sig)
-  io.out.valid := RegNext(readValid, false.B)
-  io.out.bits.column := RegEnable(tag.column, readValid)
-  io.out.bits.first := RegEnable(tag.initialize, readValid)
-  for (y <- 0 until rows) {
-    val multiplier = Module(new ExactScaleMultiplier(partialWidth, signedSig.getWidth))
-    multiplier.io.partial := tag.partial(y)
-    multiplier.io.scale_sig := signedSig
-    val product = multiplier.io.product
-    val shifted = (product.pad(outputWidth) << FP16Activation.shift(scale))(outputWidth - 1, 0).asSInt
-    io.out.bits.delta(y) := RegEnable(Mux(tag.initialize, 0.S, shifted), readValid)
+  if (scaleRows == rows) {
+    // Preserve the original full-parallel pipeline, including register boundaries.
+    selected.ready := true.B
+    val scale = halves(offset)
+    when(readValid && !tag.initialize) { assert(!scale(14, 10).andR, "Group scales must be finite FP16") }
+    val sig = Cat(0.U(1.W), FP16Activation.significand(scale)).asSInt
+    val signedSig = Mux(scale(15), -sig, sig)
+    io.out.valid := RegNext(readValid, false.B)
+    io.out.bits.column := RegEnable(tag.column, readValid)
+    io.out.bits.first := RegEnable(tag.initialize, readValid)
+    for (y <- 0 until rows) {
+      val multiplier = Module(new ExactScaleMultiplier(partialWidth, signedSig.getWidth))
+      multiplier.io.partial := tag.partial(y)
+      multiplier.io.scale_sig := signedSig
+      val product = multiplier.io.product
+      val shifted = (product.pad(outputWidth) << FP16Activation.shift(scale))(outputWidth - 1, 0).asSInt
+      io.out.bits.delta(y) := RegEnable(Mux(tag.initialize, 0.S, shifted), readValid)
+    }
+    io.empty := !initializes.io.deq.valid && !arb.io.out.valid && !readValid && !io.out.valid
+  } else {
+    // One fragment stays in tag until all of its row batches have been processed.
+    // Accept its successor during the final batch to overlap synchronous scale lookup.
+    val batches = (rows + scaleRows - 1) / scaleRows
+    val batch = RegInit(0.U(math.max(1, log2Ceil(batches)).W))
+    val busy = RegInit(false.B)
+    val processing = readValid || busy
+    val lastBatch = tag.initialize || batch === (batches - 1).U
+    selected.ready := !processing || lastBatch
+    val heldScale = RegEnable(halves(offset), readValid)
+    val scale = Mux(readValid, halves(offset), heldScale)
+    when(readValid && !tag.initialize) { assert(!scale(14, 10).andR, "Group scales must be finite FP16") }
+    val sig = Cat(0.U(1.W), FP16Activation.significand(scale)).asSInt
+    val signedSig = Mux(scale(15), -sig, sig)
+    val results = Reg(Vec(rows, SInt(outputWidth.W)))
+    val shifted = (0 until scaleRows).map { lane =>
+      val row = batch * scaleRows.U + lane.U
+      val multiplier = Module(new ExactScaleMultiplier(partialWidth, signedSig.getWidth))
+      // A final incomplete batch has inactive lanes; never index outside the vector.
+      multiplier.io.partial := Mux(row < rows.U, tag.partial(row), 0.S)
+      multiplier.io.scale_sig := signedSig
+      (multiplier.io.product.pad(outputWidth) << FP16Activation.shift(scale))(outputWidth - 1, 0).asSInt
+    }
+    when(processing) {
+      when(lastBatch) {
+        batch := 0.U
+        busy := false.B
+      }.otherwise {
+        batch := batch + 1.U
+        busy := true.B
+      }
+      for (y <- 0 until rows) {
+        when(tag.initialize) {
+          results(y) := 0.S
+        }.elsewhen(batch === (y / scaleRows).U) {
+          results(y) := shifted(y % scaleRows)
+        }
+      }
+    }
+    io.out.valid := RegNext(processing && lastBatch, false.B)
+    io.out.bits.column := RegEnable(tag.column, processing && lastBatch)
+    io.out.bits.first := RegEnable(tag.initialize, processing && lastBatch)
+    io.out.bits.delta := results
+    io.empty := !initializes.io.deq.valid && !arb.io.out.valid && !readValid && !busy && !io.out.valid
   }
-  io.empty := !initializes.io.deq.valid && !arb.io.out.valid && !readValid && !io.out.valid
 }

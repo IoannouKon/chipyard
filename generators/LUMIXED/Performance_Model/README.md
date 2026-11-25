@@ -156,3 +156,32 @@ The supplied calibrator retains its original upper-middle median and floor-index
 - External integration tests also covered signatures, extrapolation guards, traces, DMA replay and module-path isolation.
 - The old regression suite had 24/30 passing with six failures **both before and after** the FP32 integration; one expected version v5. Those expectations were not rewritten to force a pass.
 - No new Verilator/Vivado simulation or synthesis was launched for this model validation. Existing hardware jobs and archived results were left untouched.
+
+## Shared group-scaling multipliers
+
+The FP32 API now accepts `group_scale_ys` and the CLI accepts `--group-scale-ys`. Set this to the same value as hardware GROUP_SCALE_YS (1..YS). Omitting it retains the archived full-parallel assumption, with one multiplier per YS row. The model does not read Config.scala. With scaling OFF, a valid scaler count has no cycle effect.
+
+```bash
+python3 generators/LUMIXED/Performance_Model/Model.py \
+  --r 4 --k 1024 --n 2048 --b 8 --rf 4 --ys 4 --id 8 --w 4 \
+  --scale on --group-scale-ys 2 --group-size 32 --allow-extrapolation
+```
+
+```python
+p = compute_cycles(
+    4, 1024, 2048, 32, 4, 8, 4, 8,
+    factor=4, activation="fp32", group_scale_mode="on",
+    group_scale_ys=2, allow_extrapolation=True,
+)
+print(p["estimated_added_controller_cycles"], p["total_cycles"])
+```
+
+Reduced scaler counts are **analytical extrapolations, not calibrated controller predictions**. They require explicit allow_extrapolation=True / --allow-extrapolation and return prediction_status=EXTRAPOLATED_SHARED_SCALER plus sharing_validation=UNVALIDATED_CONTROLLER_ESTIMATE. The original full-parallel coefficients and their reported cross-validation accuracy are unchanged; those accuracy figures do not apply to sharing.
+
+The estimator counts each bank fragment ending at a quantization-group or K-window boundary. Each fragment needs ceil(YS/scalers) processing batches; initialization descriptors need one cycle. It distributes the calibrated combined-stage budget across dense selection-token arrivals and compares full and shared service on that same stream, including the final backlog at each window. Estimated extra exposed cycles are added only to load_w_and_select and total. Other predicted stages remain unchanged.
+
+Uniform arrivals and an unbounded abstract backlog approximate overlap. The estimator does not reproduce bounded FIFOs, four-token issue credits, round-robin ordering, bursty memory responses or cache timing. extra_scaler_service_cycles reports added multiplier work; estimated_added_controller_cycles is the estimated exposed delay. extra_service_only_range is a work-based analytical envelope, not a confidence interval or guaranteed bound on actual RTL slowdown. Small engine Verilator results validate the hardware arithmetic/scheduling implementation, not the accuracy of this controller estimate. A matched full-matmul scaler sweep remains necessary for calibration.
+
+The original INT16/FP16 event-model API remains unchanged and does not gain group-scaling support from this update. The sharing option applies to the FP32 predictor.
+
+Run `python3 generators/LUMIXED/Performance_Model/test_group_scale_ys.py` for parameter/CLI checks, analytical overlap cases, stage accounting, two legacy-model examples and exact compatibility of all 240 archived full-parallel predictions against revision 39dbffeb. No additional RTL simulation or synthesis was run for this model update.
