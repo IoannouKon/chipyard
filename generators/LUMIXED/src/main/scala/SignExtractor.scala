@@ -8,7 +8,7 @@ import chisel3.util._
 
 class ChunkSignExtender(val XBitWidth: Int, val minInputBits: Int) extends Module {
   require(Set(8, 16, 32).contains(XBitWidth), "XBitWidth must be 8, 16 or 32")
-  require(Set(2, 4, 8).contains(minInputBits), "minInputBits must be 2, 4, or 8")
+  require(Set(2, 4, 8, 16).contains(minInputBits), "minInputBits must be 2, 4, 8, or 16")
 
   val io = IO(new Bundle {
     val data       = Input(UInt(XBitWidth.W))
@@ -24,6 +24,9 @@ class ChunkSignExtender(val XBitWidth: Int, val minInputBits: Int) extends Modul
   if (XBitWidth == 32) {
     // FP32 uses one complete lane; integer packing stays restricted to 8/16.
     io.out := io.data.asSInt
+  } else if (minInputBits == 16) {
+    // A 16-bit minimum has no narrower runtime chunks.
+    io.out := shifted.asSInt
   } else if (XBitWidth == 8) {
     if (minInputBits == 2) {
       val chunk2 = shifted(1, 0)

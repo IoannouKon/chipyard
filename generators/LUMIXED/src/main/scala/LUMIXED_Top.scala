@@ -140,8 +140,10 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
       y.U -> ((basePositions + factor.U - 1.U) >> log2Ceil(factor))
     }))
   } else (count + weightBanks.U - 1.U) / weightBanks.U
-  val maxParts          = params.XBitWidth / params.minInputBits // Maximum packed activations per XBitWidth lane.
-  val product_bitwidth  = (params.XBitWidth/params.minInputBits)*(params.WBitWidth + params.minInputBits)
+  // Preserve physical product/weight buffer geometry; params.maxParts describes
+  // logical activation packing (one value per FP lane).
+  val maxParts          = params.XBitWidth / params.MIN_INT_BITS
+  val product_bitwidth  = (params.XBitWidth/params.MIN_INT_BITS)*(params.WBitWidth + params.MIN_INT_BITS)
   val elems_per_chunk = params.DMA_bits / params.OutBitWidth
   // Include a possible leading partial beat for every activation row.
   val maxStoreWrites = params.parallel_rows * ((params.Cout + 2 * elems_per_chunk - 2) / elems_per_chunk)
@@ -367,10 +369,10 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val all_available_elems   = RegInit(0.U(log2Ceil(params.Cin + 1).W))                        // How many elements are available to read in current block (for both W and X since they are the same in worst case)
   val elemOffVec            = Reg(Vec(totalSyncMems, UInt(log2Ceil(maxParts).W)))             // Keep in what offset ot row is located the element weight want to read
   val w_reg_valid           = Reg(Vec(totalSyncMems, Bool()))                                 // true -> selected value from BRAM is valid
-  val dirty_elems_x         = RegInit(0.U(log2Ceil(params.DMA_bits/params.minInputBits).W)) // Initial activation-element offset for bank traversal.
+  val dirty_elems_x         = RegInit(0.U(log2Ceil(params.DMA_bits/params.MIN_INT_BITS).W)) // Initial activation-element offset for bank traversal.
   // Counts activation elements along K; output-column capacity must not truncate it.
   val all_available_elems_x = RegInit(0.U(log2Ceil(params.Cin + 1).W))
-  val x_elems_per_reg       = if (fpGeometry) 1.U(2.W) else RegInit((params.XBitWidth / params.minInputBits).U)             //How many input elements fit  in one input register
+  val x_elems_per_reg       = if (fpGeometry) 1.U(2.W) else RegInit((params.XBitWidth / params.MIN_INT_BITS).U)             //How many input elements fit  in one input register
   val w_elems_per_reg = RegInit((params.WBitWidth / params.minWeightBits).U(3.W) )            //How many weight elements fit  in one weight register
 
   // === Product-table geometry and precision masks ===
@@ -394,7 +396,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   // DMA bus parameters (how many register or elements fitr in 64 bits dma channel)
   val elemsPerChunk_in = if (fpGeometry) (params.DMA_bits / params.FP_BITS).U(5.W) else RegInit(0.U(5.W))
   val RegsPerChunk_in  = RegInit((params.DMA_bits / params.XBitWidth).U(math.max(1, log2Ceil(params.DMA_bits / params.XBitWidth) + 1).W))
-  val elemsPerChunk_w  = RegInit((params.DMA_bits / params.minInputBits).asUInt)
+  val elemsPerChunk_w  = RegInit((params.DMA_bits / params.MIN_INT_BITS).asUInt)
   val RegsPerChunk_w   = RegInit((params.DMA_bits / params.WBitWidth).U(math.max(1, log2Ceil(params.DMA_bits / params.WBitWidth) + 1).W))
   val  clmp = RegInit(0.U(64.W))
 
@@ -442,8 +444,8 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   // rotation also preserves legacy dirty offsets across short bank blocks.
   val activationAddress = Module(new ActivationAddressCounter(
     totalSyncMems, bankSize_in, max_blocks_in_sync_mem,
-    params.XBitWidth / params.minInputBits,
-    params.DMA_bits / params.minInputBits - 1))
+    params.XBitWidth / params.MIN_INT_BITS,
+    params.DMA_bits / params.MIN_INT_BITS - 1))
   activationAddress.io.restart := false.B
   activationAddress.io.advance := false.B
   activationAddress.io.blocks := blocks_in_Sync_mem
@@ -663,7 +665,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   }
 
   // ChunkSignExtender Module
-  val chunkExtenders = Seq.fill(totalSyncMems,maxParts) { Module(new ChunkSignExtender(params.XBitWidth,params.minInputBits))}
+  val chunkExtenders = Seq.fill(totalSyncMems,maxParts) { Module(new ChunkSignExtender(params.XBitWidth,params.MIN_INT_BITS))}
   for {
     i <- 0 until totalSyncMems
     j <- 0 until maxParts
@@ -686,7 +688,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
       RowsPerBlock,
       params.DMA_bits,
       product_bitwidth,
-      params.minInputBits,
+      params.MIN_INT_BITS,
       params.FP_ACTIVATIONS,
       params.FP_BITS,
       if (params.parallel_rows > 1) params.banks_per_row else 0,
