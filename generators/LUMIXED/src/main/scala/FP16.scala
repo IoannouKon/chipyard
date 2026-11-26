@@ -2,6 +2,24 @@ package LUMIXED_PACKAGE
 
 import chisel3._
 import chisel3.util._
+import hardfloat._
+
+/** IEEE FP32 addition, round-nearest/ties-to-even, with canonical NaN output. */
+class FP32AccumulatorAdd extends Module {
+  val io = IO(new Bundle {
+    val a = Input(UInt(32.W))
+    val b = Input(UInt(32.W))
+    val result = Output(UInt(32.W))
+  })
+  val add = Module(new AddRecFN(8, 24))
+  add.io.subOp := false.B
+  add.io.a := recFNFromFN(8, 24, io.a)
+  add.io.b := recFNFromFN(8, 24, io.b)
+  add.io.roundingMode := consts.round_near_even
+  add.io.detectTininess := consts.tininess_afterRounding
+  val bits = fNFromRecFN(8, 24, add.io.out)
+  io.result := Mux(bits(30, 23).andR && bits(22, 0).orR, "h7fc00000".U, bits)
+}
 
 /** Decode binary16/binary32 exactly as an integer significand and binary shift.
   * Finite values use units of 2^-24 (FP16) or 2^-149 (FP32).

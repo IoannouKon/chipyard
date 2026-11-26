@@ -1,0 +1,531 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version      : Vivado v.2023.2 (lin64) Build 4029153 Fri Oct 13 20:13:54 MDT 2023
+| Date              : Thu Nov 26 12:35:41 2026
+| Host              : cheetara running 64-bit Ubuntu 20.04.6 LTS
+| Command           : report_timing -from [filter [all_registers] {NAME =~ core/*}] -to [filter [all_registers] {NAME =~ core/*}] -delay_type min -max_paths 10 -file /home/kioannou/artifacts/lumixed_registered_fullcore_20261126/ppa/pipelined/core_internal_hold.rpt
+| Design            : RegisteredContext
+| Device            : xcu250-figd2104
+| Speed File        : -2  PRODUCTION 1.28 03-30-2022
+| Design State      : Routed
+| Temperature Grade : E
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Timing Report
+
+Slack (MET) :             0.011ns  (arrival time - required time)
+  Source:                 core/sum_13_REG_reg[2]/C
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Destination:            core/sum_13_reg[2]/D
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Path Group:             ppa_clk
+  Path Type:              Hold (Min at Slow Process Corner)
+  Requirement:            0.000ns  (ppa_clk rise@0.000ns - ppa_clk rise@0.000ns)
+  Data Path Delay:        0.133ns  (logic 0.059ns (44.361%)  route 0.074ns (55.639%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.060ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.312ns
+    Source Clock Delay      (SCD):    2.034ns
+    Clock Pessimism Removal (CPR):    0.218ns
+  Clock Net Delay (Source):      1.974ns (routing 1.039ns, distribution 0.935ns)
+  Clock Net Delay (Destination): 2.241ns (routing 1.140ns, distribution 1.101ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.036     0.036    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     0.060 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        1.974     2.034    core/clock
+    SLR Crossing[1->2]   
+    SLICE_X70Y601        FDRE                                         r  core/sum_13_REG_reg[2]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X70Y601        FDRE (Prop_DFF_SLICEL_C_Q)
+                                                      0.059     2.093 r  core/sum_13_REG_reg[2]/Q
+                         net (fo=1, routed)           0.074     2.167    core/sum_13_REG[2]
+    SLICE_X70Y600        FDRE                                         r  core/sum_13_reg[2]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.043     0.043    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.071 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.241     2.312    core/clock
+    SLR Crossing[1->2]   
+    SLICE_X70Y600        FDRE                                         r  core/sum_13_reg[2]/C
+                         clock pessimism             -0.218     2.094    
+    SLICE_X70Y600        FDRE (Hold_FFF2_SLICEL_C_D)
+                                                      0.062     2.156    core/sum_13_reg[2]
+  -------------------------------------------------------------------
+                         required time                         -2.156    
+                         arrival time                           2.167    
+  -------------------------------------------------------------------
+                         slack                                  0.011    
+
+Slack (MET) :             0.011ns  (arrival time - required time)
+  Source:                 core/i_x_start_reg[4]/C
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Destination:            core/i_x_reg[4]/D
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Path Group:             ppa_clk
+  Path Type:              Hold (Min at Slow Process Corner)
+  Requirement:            0.000ns  (ppa_clk rise@0.000ns - ppa_clk rise@0.000ns)
+  Data Path Delay:        0.188ns  (logic 0.095ns (50.550%)  route 0.093ns (49.450%))
+  Logic Levels:           1  (LUT6=1)
+  Clock Path Skew:        0.117ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.626ns
+    Source Clock Delay      (SCD):    2.324ns
+    Clock Pessimism Removal (CPR):    0.185ns
+  Clock Net Delay (Source):      2.264ns (routing 1.039ns, distribution 1.225ns)
+  Clock Net Delay (Destination): 2.555ns (routing 1.140ns, distribution 1.415ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.036     0.036    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     0.060 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.264     2.324    core/clock
+    SLR Crossing[1->2]   
+    SLICE_X134Y620       FDRE                                         r  core/i_x_start_reg[4]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X134Y620       FDRE (Prop_EFF_SLICEL_C_Q)
+                                                      0.059     2.383 r  core/i_x_start_reg[4]/Q
+                         net (fo=2, routed)           0.069     2.452    core/i_x_start_reg[4]
+    SLICE_X136Y620       LUT6 (Prop_H6LUT_SLICEL_I5_O)
+                                                      0.036     2.488 r  core/i_x[4]_i_1/O
+                         net (fo=1, routed)           0.024     2.512    core/p_0_in__0__0[4]
+    SLICE_X136Y620       FDRE                                         r  core/i_x_reg[4]/D
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.043     0.043    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.071 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.555     2.626    core/clock
+    SLR Crossing[1->2]   
+    SLICE_X136Y620       FDRE                                         r  core/i_x_reg[4]/C
+                         clock pessimism             -0.185     2.441    
+    SLICE_X136Y620       FDRE (Hold_HFF_SLICEL_C_D)
+                                                      0.060     2.501    core/i_x_reg[4]
+  -------------------------------------------------------------------
+                         required time                         -2.501    
+                         arrival time                           2.512    
+  -------------------------------------------------------------------
+                         slack                                  0.011    
+
+Slack (MET) :             0.015ns  (arrival time - required time)
+  Source:                 core/dma/requestOrder/enq_ptr_value_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Destination:            core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMA/WADR1
+                            (rising edge-triggered cell RAMD32 clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Path Group:             ppa_clk
+  Path Type:              Hold (Min at Slow Process Corner)
+  Requirement:            0.000ns  (ppa_clk rise@0.000ns - ppa_clk rise@0.000ns)
+  Data Path Delay:        0.187ns  (logic 0.058ns (30.941%)  route 0.129ns (69.059%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.085ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.658ns
+    Source Clock Delay      (SCD):    2.329ns
+    Clock Pessimism Removal (CPR):    0.245ns
+  Clock Net Delay (Source):      2.269ns (routing 1.039ns, distribution 1.230ns)
+  Clock Net Delay (Destination): 2.587ns (routing 1.140ns, distribution 1.447ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.036     0.036    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     0.060 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.269     2.329    core/dma/requestOrder/clock
+    SLR Crossing[1->2]   
+    SLICE_X142Y629       FDRE                                         r  core/dma/requestOrder/enq_ptr_value_reg[1]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X142Y629       FDRE (Prop_DFF_SLICEM_C_Q)
+                                                      0.058     2.387 r  core/dma/requestOrder/enq_ptr_value_reg[1]/Q
+                         net (fo=11, routed)          0.129     2.516    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/ADDRD1
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMA/WADR1
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.043     0.043    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.071 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.587     2.658    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/WCLK
+    SLR Crossing[1->2]   
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMA/CLK
+                         clock pessimism             -0.245     2.413    
+    SLICE_X142Y628       RAMD32 (Hold_E5LUT_SLICEM_CLK_WADR1)
+                                                      0.088     2.501    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMA
+  -------------------------------------------------------------------
+                         required time                         -2.501    
+                         arrival time                           2.516    
+  -------------------------------------------------------------------
+                         slack                                  0.015    
+
+Slack (MET) :             0.015ns  (arrival time - required time)
+  Source:                 core/dma/requestOrder/enq_ptr_value_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Destination:            core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMA_D1/WADR1
+                            (rising edge-triggered cell RAMD32 clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Path Group:             ppa_clk
+  Path Type:              Hold (Min at Slow Process Corner)
+  Requirement:            0.000ns  (ppa_clk rise@0.000ns - ppa_clk rise@0.000ns)
+  Data Path Delay:        0.187ns  (logic 0.058ns (30.941%)  route 0.129ns (69.059%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.085ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.658ns
+    Source Clock Delay      (SCD):    2.329ns
+    Clock Pessimism Removal (CPR):    0.245ns
+  Clock Net Delay (Source):      2.269ns (routing 1.039ns, distribution 1.230ns)
+  Clock Net Delay (Destination): 2.587ns (routing 1.140ns, distribution 1.447ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.036     0.036    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     0.060 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.269     2.329    core/dma/requestOrder/clock
+    SLR Crossing[1->2]   
+    SLICE_X142Y629       FDRE                                         r  core/dma/requestOrder/enq_ptr_value_reg[1]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X142Y629       FDRE (Prop_DFF_SLICEM_C_Q)
+                                                      0.058     2.387 r  core/dma/requestOrder/enq_ptr_value_reg[1]/Q
+                         net (fo=11, routed)          0.129     2.516    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/ADDRD1
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMA_D1/WADR1
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.043     0.043    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.071 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.587     2.658    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/WCLK
+    SLR Crossing[1->2]   
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMA_D1/CLK
+                         clock pessimism             -0.245     2.413    
+    SLICE_X142Y628       RAMD32 (Hold_E6LUT_SLICEM_CLK_WADR1)
+                                                      0.088     2.501    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMA_D1
+  -------------------------------------------------------------------
+                         required time                         -2.501    
+                         arrival time                           2.516    
+  -------------------------------------------------------------------
+                         slack                                  0.015    
+
+Slack (MET) :             0.015ns  (arrival time - required time)
+  Source:                 core/dma/requestOrder/enq_ptr_value_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Destination:            core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMB/WADR1
+                            (rising edge-triggered cell RAMD32 clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Path Group:             ppa_clk
+  Path Type:              Hold (Min at Slow Process Corner)
+  Requirement:            0.000ns  (ppa_clk rise@0.000ns - ppa_clk rise@0.000ns)
+  Data Path Delay:        0.187ns  (logic 0.058ns (30.941%)  route 0.129ns (69.059%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.085ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.658ns
+    Source Clock Delay      (SCD):    2.329ns
+    Clock Pessimism Removal (CPR):    0.245ns
+  Clock Net Delay (Source):      2.269ns (routing 1.039ns, distribution 1.230ns)
+  Clock Net Delay (Destination): 2.587ns (routing 1.140ns, distribution 1.447ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.036     0.036    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     0.060 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.269     2.329    core/dma/requestOrder/clock
+    SLR Crossing[1->2]   
+    SLICE_X142Y629       FDRE                                         r  core/dma/requestOrder/enq_ptr_value_reg[1]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X142Y629       FDRE (Prop_DFF_SLICEM_C_Q)
+                                                      0.058     2.387 r  core/dma/requestOrder/enq_ptr_value_reg[1]/Q
+                         net (fo=11, routed)          0.129     2.516    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/ADDRD1
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMB/WADR1
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.043     0.043    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.071 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.587     2.658    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/WCLK
+    SLR Crossing[1->2]   
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMB/CLK
+                         clock pessimism             -0.245     2.413    
+    SLICE_X142Y628       RAMD32 (Hold_F5LUT_SLICEM_CLK_WADR1)
+                                                      0.088     2.501    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMB
+  -------------------------------------------------------------------
+                         required time                         -2.501    
+                         arrival time                           2.516    
+  -------------------------------------------------------------------
+                         slack                                  0.015    
+
+Slack (MET) :             0.015ns  (arrival time - required time)
+  Source:                 core/dma/requestOrder/enq_ptr_value_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Destination:            core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMB_D1/WADR1
+                            (rising edge-triggered cell RAMD32 clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Path Group:             ppa_clk
+  Path Type:              Hold (Min at Slow Process Corner)
+  Requirement:            0.000ns  (ppa_clk rise@0.000ns - ppa_clk rise@0.000ns)
+  Data Path Delay:        0.187ns  (logic 0.058ns (30.941%)  route 0.129ns (69.059%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.085ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.658ns
+    Source Clock Delay      (SCD):    2.329ns
+    Clock Pessimism Removal (CPR):    0.245ns
+  Clock Net Delay (Source):      2.269ns (routing 1.039ns, distribution 1.230ns)
+  Clock Net Delay (Destination): 2.587ns (routing 1.140ns, distribution 1.447ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.036     0.036    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     0.060 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.269     2.329    core/dma/requestOrder/clock
+    SLR Crossing[1->2]   
+    SLICE_X142Y629       FDRE                                         r  core/dma/requestOrder/enq_ptr_value_reg[1]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X142Y629       FDRE (Prop_DFF_SLICEM_C_Q)
+                                                      0.058     2.387 r  core/dma/requestOrder/enq_ptr_value_reg[1]/Q
+                         net (fo=11, routed)          0.129     2.516    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/ADDRD1
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMB_D1/WADR1
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.043     0.043    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.071 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.587     2.658    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/WCLK
+    SLR Crossing[1->2]   
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMB_D1/CLK
+                         clock pessimism             -0.245     2.413    
+    SLICE_X142Y628       RAMD32 (Hold_F6LUT_SLICEM_CLK_WADR1)
+                                                      0.088     2.501    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMB_D1
+  -------------------------------------------------------------------
+                         required time                         -2.501    
+                         arrival time                           2.516    
+  -------------------------------------------------------------------
+                         slack                                  0.015    
+
+Slack (MET) :             0.015ns  (arrival time - required time)
+  Source:                 core/dma/requestOrder/enq_ptr_value_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Destination:            core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMC/WADR1
+                            (rising edge-triggered cell RAMD32 clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Path Group:             ppa_clk
+  Path Type:              Hold (Min at Slow Process Corner)
+  Requirement:            0.000ns  (ppa_clk rise@0.000ns - ppa_clk rise@0.000ns)
+  Data Path Delay:        0.187ns  (logic 0.058ns (30.941%)  route 0.129ns (69.059%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.085ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.658ns
+    Source Clock Delay      (SCD):    2.329ns
+    Clock Pessimism Removal (CPR):    0.245ns
+  Clock Net Delay (Source):      2.269ns (routing 1.039ns, distribution 1.230ns)
+  Clock Net Delay (Destination): 2.587ns (routing 1.140ns, distribution 1.447ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.036     0.036    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     0.060 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.269     2.329    core/dma/requestOrder/clock
+    SLR Crossing[1->2]   
+    SLICE_X142Y629       FDRE                                         r  core/dma/requestOrder/enq_ptr_value_reg[1]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X142Y629       FDRE (Prop_DFF_SLICEM_C_Q)
+                                                      0.058     2.387 r  core/dma/requestOrder/enq_ptr_value_reg[1]/Q
+                         net (fo=11, routed)          0.129     2.516    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/ADDRD1
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMC/WADR1
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.043     0.043    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.071 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.587     2.658    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/WCLK
+    SLR Crossing[1->2]   
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMC/CLK
+                         clock pessimism             -0.245     2.413    
+    SLICE_X142Y628       RAMD32 (Hold_G5LUT_SLICEM_CLK_WADR1)
+                                                      0.088     2.501    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMC
+  -------------------------------------------------------------------
+                         required time                         -2.501    
+                         arrival time                           2.516    
+  -------------------------------------------------------------------
+                         slack                                  0.015    
+
+Slack (MET) :             0.015ns  (arrival time - required time)
+  Source:                 core/dma/requestOrder/enq_ptr_value_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Destination:            core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMC_D1/WADR1
+                            (rising edge-triggered cell RAMD32 clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Path Group:             ppa_clk
+  Path Type:              Hold (Min at Slow Process Corner)
+  Requirement:            0.000ns  (ppa_clk rise@0.000ns - ppa_clk rise@0.000ns)
+  Data Path Delay:        0.187ns  (logic 0.058ns (30.941%)  route 0.129ns (69.059%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.085ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.658ns
+    Source Clock Delay      (SCD):    2.329ns
+    Clock Pessimism Removal (CPR):    0.245ns
+  Clock Net Delay (Source):      2.269ns (routing 1.039ns, distribution 1.230ns)
+  Clock Net Delay (Destination): 2.587ns (routing 1.140ns, distribution 1.447ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.036     0.036    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     0.060 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.269     2.329    core/dma/requestOrder/clock
+    SLR Crossing[1->2]   
+    SLICE_X142Y629       FDRE                                         r  core/dma/requestOrder/enq_ptr_value_reg[1]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X142Y629       FDRE (Prop_DFF_SLICEM_C_Q)
+                                                      0.058     2.387 r  core/dma/requestOrder/enq_ptr_value_reg[1]/Q
+                         net (fo=11, routed)          0.129     2.516    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/ADDRD1
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMC_D1/WADR1
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.043     0.043    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.071 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.587     2.658    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/WCLK
+    SLR Crossing[1->2]   
+    SLICE_X142Y628       RAMD32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMC_D1/CLK
+                         clock pessimism             -0.245     2.413    
+    SLICE_X142Y628       RAMD32 (Hold_G6LUT_SLICEM_CLK_WADR1)
+                                                      0.088     2.501    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMC_D1
+  -------------------------------------------------------------------
+                         required time                         -2.501    
+                         arrival time                           2.516    
+  -------------------------------------------------------------------
+                         slack                                  0.015    
+
+Slack (MET) :             0.015ns  (arrival time - required time)
+  Source:                 core/dma/requestOrder/enq_ptr_value_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Destination:            core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMD/ADR1
+                            (rising edge-triggered cell RAMS32 clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Path Group:             ppa_clk
+  Path Type:              Hold (Min at Slow Process Corner)
+  Requirement:            0.000ns  (ppa_clk rise@0.000ns - ppa_clk rise@0.000ns)
+  Data Path Delay:        0.187ns  (logic 0.058ns (30.941%)  route 0.129ns (69.059%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.085ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.658ns
+    Source Clock Delay      (SCD):    2.329ns
+    Clock Pessimism Removal (CPR):    0.245ns
+  Clock Net Delay (Source):      2.269ns (routing 1.039ns, distribution 1.230ns)
+  Clock Net Delay (Destination): 2.587ns (routing 1.140ns, distribution 1.447ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.036     0.036    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     0.060 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.269     2.329    core/dma/requestOrder/clock
+    SLR Crossing[1->2]   
+    SLICE_X142Y629       FDRE                                         r  core/dma/requestOrder/enq_ptr_value_reg[1]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X142Y629       FDRE (Prop_DFF_SLICEM_C_Q)
+                                                      0.058     2.387 r  core/dma/requestOrder/enq_ptr_value_reg[1]/Q
+                         net (fo=11, routed)          0.129     2.516    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/ADDRD1
+    SLICE_X142Y628       RAMS32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMD/ADR1
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.043     0.043    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.071 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.587     2.658    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/WCLK
+    SLR Crossing[1->2]   
+    SLICE_X142Y628       RAMS32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMD/CLK
+                         clock pessimism             -0.245     2.413    
+    SLICE_X142Y628       RAMS32 (Hold_H5LUT_SLICEM_CLK_ADR1)
+                                                      0.088     2.501    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMD
+  -------------------------------------------------------------------
+                         required time                         -2.501    
+                         arrival time                           2.516    
+  -------------------------------------------------------------------
+                         slack                                  0.015    
+
+Slack (MET) :             0.015ns  (arrival time - required time)
+  Source:                 core/dma/requestOrder/enq_ptr_value_reg[1]/C
+                            (rising edge-triggered cell FDRE clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Destination:            core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMD_D1/ADR1
+                            (rising edge-triggered cell RAMS32 clocked by ppa_clk  {rise@0.000ns fall@10.000ns period=20.000ns})
+  Path Group:             ppa_clk
+  Path Type:              Hold (Min at Slow Process Corner)
+  Requirement:            0.000ns  (ppa_clk rise@0.000ns - ppa_clk rise@0.000ns)
+  Data Path Delay:        0.187ns  (logic 0.058ns (30.941%)  route 0.129ns (69.059%))
+  Logic Levels:           0  
+  Clock Path Skew:        0.085ns (DCD - SCD - CPR)
+    Destination Clock Delay (DCD):    2.658ns
+    Source Clock Delay      (SCD):    2.329ns
+    Clock Pessimism Removal (CPR):    0.245ns
+  Clock Net Delay (Source):      2.269ns (routing 1.039ns, distribution 1.230ns)
+  Clock Net Delay (Destination): 2.587ns (routing 1.140ns, distribution 1.447ns)
+
+    Location             Delay type                Incr(ns)  Path(ns)    Netlist Resource(s)
+  -------------------------------------------------------------------    -------------------
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.036     0.036    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.024     0.060 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.269     2.329    core/dma/requestOrder/clock
+    SLR Crossing[1->2]   
+    SLICE_X142Y629       FDRE                                         r  core/dma/requestOrder/enq_ptr_value_reg[1]/C
+  -------------------------------------------------------------------    -------------------
+    SLICE_X142Y629       FDRE (Prop_DFF_SLICEM_C_Q)
+                                                      0.058     2.387 r  core/dma/requestOrder/enq_ptr_value_reg[1]/Q
+                         net (fo=11, routed)          0.129     2.516    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/ADDRD1
+    SLICE_X142Y628       RAMS32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMD_D1/ADR1
+  -------------------------------------------------------------------    -------------------
+
+                         (clock ppa_clk rise edge)    0.000     0.000 r  
+                                                      0.000     0.000 r  clock (IN)
+                         net (fo=0)                   0.043     0.043    PPA_GLOBAL_CLOCK_INPUT
+    BUFGCE_X0Y183        BUFGCE (Prop_BUFCE_BUFGCE_I_O)
+                                                      0.028     0.071 r  PPA_GLOBAL_CLOCK_BUFFER/O
+    X2Y9 (CLOCK_ROOT)    net (fo=8769, routed)        2.587     2.658    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/WCLK
+    SLR Crossing[1->2]   
+    SLICE_X142Y628       RAMS32                                       r  core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMD_D1/CLK
+                         clock pessimism             -0.245     2.413    
+    SLICE_X142Y628       RAMS32 (Hold_H6LUT_SLICEM_CLK_ADR1)
+                                                      0.088     2.501    core/dma/requestOrder/ram_ext/Memory_reg_0_7_0_2/RAMD_D1
+  -------------------------------------------------------------------
+                         required time                         -2.501    
+                         arrival time                           2.516    
+  -------------------------------------------------------------------
+                         slack                                  0.015    
+
+
+
+

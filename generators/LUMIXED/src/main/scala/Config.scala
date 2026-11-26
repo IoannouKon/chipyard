@@ -28,6 +28,7 @@ case class LUMIXEDParams(
   GROUP_SCALE_ALIGNED:         Boolean = false,
   GROUP_SCALE_DEFERRED:        Boolean = false,
   GROUP_SCALE_YS:              Int = 1,
+  ROUNDED_ACCUMULATION:        Boolean = false,
 ) {
   require(GROUP_SCALE_YS >= 1 && GROUP_SCALE_YS <= parallel_rows,
     "GROUP_SCALE_YS must be between 1 and parallel_rows")
@@ -72,6 +73,7 @@ object LUMIXED_Config {
 
     // 5. Output storage.
     BRAM_OUTPUTS = true,  // Use synchronous SRAM for output accumulators.
+    ROUNDED_ACCUMULATION = false, // Opt-in unscaled FP32: register each rounded subtotal/tag, then FP32 RNE accumulation; drain before advancing.
     num_filters  = 1,     // Register-output bank allocation; only bank 0 is used.
 
     // 6. Optional scheduling experiments (disabled by default).

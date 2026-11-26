@@ -1,0 +1,167 @@
+{
+  "device": "xcu250-figd2104-2-e",
+  "tool": "Vivado 2023.2 build 4029153",
+  "clock_period_ns": 20,
+  "target_mhz": 50,
+  "threads": 8,
+  "mode": "out_of_context_registered_system_context",
+  "parameters": {
+    "B": 8,
+    "RF": 8,
+    "YS": 2,
+    "DMA_ID": 8,
+    "DMA_Bytes": 8,
+    "W_BUFFS": 2,
+    "Rin": 4,
+    "Cin": 3072,
+    "Cout": 3072,
+    "FP_ACTIVATIONS": true,
+    "FP_BITS": 32,
+    "OutBitWidth": 32,
+    "BRAM_OUTPUTS": true,
+    "ROUNDED_ACCUMULATION": true,
+    "GROUP_SCALE_ALIGNED": false,
+    "GROUP_SCALE_DEFERRED": false,
+    "FLEXIBLE_BANK_GROUPING": false,
+    "SKIP_ZERO_WEIGHTS": false,
+    "WEIGHT_DMA_BURSTS": false,
+    "EARLY_WEIGHT_BUFFER_RELEASE": false
+  },
+  "routed_pipelined_historical_parameter": {
+    "PIPELINED_ROUNDED_ACCUMULATION": true
+  },
+  "timing_of_evidence": "Routed before removal of the extra pipeline flag. Final merged source verified afterward by fresh full-system Verilator; not rerun in Vivado.",
+  "source_base_revision": "7bf8dcf1d1b67f4b7dc1e51781281dc639abec10",
+  "pre_cleanup_pipelined_source_sha256": {
+    "Config.scala": "65a38def2969995ce895d9fd7bd0f0171cc593e2924c76044f4c423655bd3b4c",
+    "FP16.scala": "db1946d9a38739438ee5ed71211723e334232fd9391cb4b8690db0d65990ae30",
+    "LUMIXED_Top.scala": "778bf8443ab16ca09e6ba24b654947615be517a405f10975ad02d4b3e3e65c70",
+    "OutputAccumulator.scala": "ebdc285be641d88549fcc07c0563fb918bb2d9185e06c56b8010cf59c4c7cf53"
+  },
+  "final_source_sha256": {
+    "Config.scala": "8cf3111bf26159615b0df4e17533b48906484647fdb3fcb348a3a1467df3038f",
+    "FP16.scala": "db1946d9a38739438ee5ed71211723e334232fd9391cb4b8690db0d65990ae30",
+    "LUMIXED_Top.scala": "feb6965b40f849a973e803c981aa9cfc73978259fec53ae5b5d23cee2ae039b7",
+    "OutputAccumulator.scala": "ebdc285be641d88549fcc07c0563fb918bb2d9185e06c56b8010cf59c4c7cf53"
+  },
+  "source_core_checkpoints": {
+    "rounded": {
+      "origin": "/home/kioannou/artifacts/lumixed_rounded_accum_20261125/results/xcu250-figd2104-2-e/lumixed_unscaled_B8_RF8_YS2_ID8_R4_ROUNDED",
+      "checkpoint_sha256": "6b55dafd133092c197178f87ee7ab7227e18d7ae84c3c7fb377ecf3788b620af"
+    },
+    "pipelined": {
+      "origin": "/home/kioannou/artifacts/lumixed_rounded_pipeline_20261125/results/xcu250-figd2104-2-e/lumixed_unscaled_B8_RF8_YS2_ID8_R4_ROUNDED_PIPELINED",
+      "checkpoint_sha256": "ea0f6d1220d52bcf3ffffd1b627ea2050b05a54c2f64dd1e71a185c60bbcf421"
+    }
+  },
+  "same_context_and_flow_for_both": true,
+  "shared_synth_input_sha256": {
+    "export_cores.tcl": "0ec7d59007cd995eee8efdac71bbcc72102341361886257c1045899fadba7287",
+    "vivado_ppa_ooc.tcl": "09cc92928e4b09e959325a4d2b2c3e423a1e02dc36981e9363dbcab8724ee871",
+    "retention.tcl": "404427a97a99b7fa99ecbf4f1966aa8731a239944492d1662f1661d192812b06",
+    "ooc_clock_integration.tcl": "e1c0b2df4fa3256ade2acd685d1276496e1df75ffd177f0ccdb5186f3e7eb033",
+    "RegisteredContext.sv": "2c9b22291efbe866ac07d867a04c7daab78c52ae131370c2cc7cc9af53bbd8c1"
+  },
+  "archived_hardware_files_sha256": {
+    "comparison.csv": "ea367d3bdb9e58a5d4b47136a4f6514a85e76f5618f471b828c7cdfba4efafe9",
+    "pipelined/check_timing_post_route.rpt": "416ee426a410d9784d9b4a36d4388a5838a11eb827dccac3ef205992efa61b64",
+    "pipelined/clock_utilization.rpt": "aa810999f56a1123dd637d91c3defeb9d9999957c7c7bf4ec9d796cac03cadab",
+    "pipelined/clocks.rpt": "62ed4a6fea4df3d1a7440b51f700714a624d441a093409ddefdb973b474537b3",
+    "pipelined/core_internal_hold.rpt": "faba6049d0dcb554f48c034f21ff592dfc1727f775a19be91f4521b5f31c52bb",
+    "pipelined/core_internal_setup.rpt": "a9c8586f699ecd911477008be9bc745be68d64bd4899ce2129eb6f37c47bc008",
+    "pipelined/data_reachability.tsv": "7e4dc0879eb30f85099dbff84b0186c78ef354048932ab61ddc561e3bbddcfae",
+    "pipelined/drc_post_route.rpt": "0e54ada1ddabc9404364aabe1d6b86d07e02c2e3ded4a2dccb02aa98a964e6ba",
+    "pipelined/final_constraints.xdc": "5653b8b572ec562b306b99da231299a2410dac57c41a50e75a0e175411440935",
+    "pipelined/imported_core_properties.rpt": "4bda7cb04d598352fa273a58cb24bc081d74d834808b6b62ceefde68b63935bd",
+    "pipelined/internal_hold.rpt": "20e4ef95b6bad36a225e6ebbbe729e123501981924b040e3fd823b20368504e3",
+    "pipelined/internal_setup.rpt": "80f0d3b7b0c7128aef86628b473c8a19351e98734f9326bbec96a1db5a97922b",
+    "pipelined/power_hierarchy_post_route.rpt": "d5838f65084188aa7ec41988aea796d58a3d4eabc2c382e65e4eaf95d1d0e74f",
+    "pipelined/power_post_route_vectorless.rpt": "0264287a3f22cb60f5cc8f37afd815061a887cc7203aa1e7d8b242db231d0eeb",
+    "pipelined/retention_linked.tsv": "73e2b99c132a7a32d86b7175aeb54bdcb84609cb83db03c7f82564794be92538",
+    "pipelined/retention_opt_design.tsv": "1a2e53d99f36e12f337a8ac9a3bd7fe438e80ecde5d4e44b12a04f264f0a571b",
+    "pipelined/retention_phys_opt_design.tsv": "61ff9ffdc9fdad05ac8361ffb34b9f719b4d2628e87203cde87679b07bf23988",
+    "pipelined/retention_route_design.tsv": "61ff9ffdc9fdad05ac8361ffb34b9f719b4d2628e87203cde87679b07bf23988",
+    "pipelined/route_status.rpt": "0fab23038e880daba5c2292f3d3ea447d5e4277eef54bce3ac47f1ceddb5667a",
+    "pipelined/status.tsv": "cda8cf213bd380d0dfe104ca2d0bc50ec55248ee3aea126ec0550f08a1ed1637",
+    "pipelined/timing_post_route.rpt": "542783c1e2520f069805ba9c0b9c7101d4702dfe3e3659347cebabb1789d0550",
+    "pipelined/utilization_hierarchical_post_route.rpt": "2a388a39d94ca466dec53f4abc49e44243b9d8658a06048469d2be95533ec24c",
+    "pipelined/utilization_hierarchical_post_synth.rpt": "0d85cce2a2e2c9434687fedab016470eb300bf3e96e6b242cb44c535ff91eb04",
+    "pipelined/utilization_post_route.rpt": "00de1d929b93dcdbb8880b2f8fa779908ee9d51e879382e3ed2b6fe7e2600296",
+    "provenance/RegisteredContext.scala": "ffec444f1a9f84958d3649211944fb6b0fccf394e9dc70798026e27cd965cd9e",
+    "provenance/export_cores.tcl": "0ec7d59007cd995eee8efdac71bbcc72102341361886257c1045899fadba7287",
+    "provenance/ooc_clock_integration.tcl": "e1c0b2df4fa3256ade2acd685d1276496e1df75ffd177f0ccdb5186f3e7eb033",
+    "provenance/retention.tcl": "404427a97a99b7fa99ecbf4f1966aa8731a239944492d1662f1661d192812b06",
+    "provenance/vivado_ppa_ooc.tcl": "09cc92928e4b09e959325a4d2b2c3e423a1e02dc36981e9363dbcab8724ee871"
+  },
+  "original_routed_reports": {
+    "rounded": {
+      "directory": "/home/kioannou/artifacts/lumixed_registered_fullcore_20261126/ppa/rounded",
+      "sha256": {
+        "utilization_post_route.rpt": "b99e68269bc32bb2099891b427acf5ca2de03433a57de48ee0919c7fab4323a6",
+        "power_post_route_vectorless.rpt": "b4996ac999dc563d176587fd39c76498883333e12ac9636eb6b96f95dbc4594b",
+        "core_internal_setup.rpt": "504ff50f7411192cbdb43607de765f61a145f81abae74c323e4b57696b6caec8",
+        "internal_hold.rpt": "5d9b21dbfbad217ba8d017b0c688e852ab0ada62a6b473e9cf1f4ad2b9b7b744",
+        "status.tsv": "445f394a3545fd804b44991383da9b9ef05b3b469f2fe6158f0ff97a0ea54aef"
+      }
+    },
+    "pipelined": {
+      "directory": "/home/kioannou/artifacts/lumixed_registered_fullcore_20261126/ppa/pipelined",
+      "sha256": {
+        "utilization_post_route.rpt": "00de1d929b93dcdbb8880b2f8fa779908ee9d51e879382e3ed2b6fe7e2600296",
+        "power_post_route_vectorless.rpt": "0264287a3f22cb60f5cc8f37afd815061a887cc7203aa1e7d8b242db231d0eeb",
+        "core_internal_setup.rpt": "a9c8586f699ecd911477008be9bc745be68d64bd4899ce2129eb6f37c47bc008",
+        "internal_hold.rpt": "20e4ef95b6bad36a225e6ebbbe729e123501981924b040e3fd823b20368504e3",
+        "status.tsv": "cda8cf213bd380d0dfe104ca2d0bc50ec55248ee3aea126ec0550f08a1ed1637"
+      }
+    }
+  },
+  "fresh_final_cleanup_verilator": {
+    "result": "PASS",
+    "tests": 48,
+    "modes": {
+      "rounded": {
+        "tests": 24,
+        "elements": 264,
+        "mismatches": 0
+      },
+      "exact": {
+        "tests": 24,
+        "elements": 264,
+        "mismatches": 0
+      }
+    },
+    "all_guards_pass": true,
+    "rounded_comparisons": 24,
+    "rounded_outputs_identical_to_previous_pipelined": true,
+    "rounded_cycle_total_deltas": [
+      0
+    ],
+    "rounded_all_stage_cycles_identical": true,
+    "no_vivado": true
+  },
+  "final_smoke_directory": "/home/kioannou/artifacts/lumixed_rounded_unified_smoke_20261126",
+  "actual_vivado_invocation": {
+    "command": [
+      "/tools/Xilinx/Vivado/2023.2/bin/vivado",
+      "-mode",
+      "batch",
+      "-nojournal",
+      "-log",
+      "/home/kioannou/artifacts/lumixed_registered_fullcore_20261126/ppa/pipelined/vivado.log",
+      "-source",
+      "/home/kioannou/artifacts/lumixed_registered_fullcore_20261126/flow/vivado_ppa_ooc.tcl",
+      "-tclargs",
+      "RegisteredContext",
+      "/home/kioannou/artifacts/lumixed_registered_fullcore_20261126/ppa/pipelined/sources.txt",
+      "/home/kioannou/artifacts/lumixed_registered_fullcore_20261126/ppa/pipelined/include_dirs.txt",
+      "xcu250-figd2104-2-e",
+      "clock",
+      "20",
+      "route",
+      "/home/kioannou/artifacts/lumixed_registered_fullcore_20261126/ppa/pipelined"
+    ],
+    "cwd": "/home/kioannou/artifacts/lumixed_registered_fullcore_20261126",
+    "threads": 8
+  },
+  "excluded": "No generated binaries/netlists/checkpoints/JARs, application or benchmark software, C/C++ harnesses, Gemmini/ZCU106, rejected/pruned/timed-out trials, or old archives."
+}

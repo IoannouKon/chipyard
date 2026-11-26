@@ -9,7 +9,8 @@ import chisel3.util._
   * The first contribution in the first K window overwrites old contents, so
   * storage needs neither a whole-array reset nor clearing after DMA acceptance.
   */
-class OutputAccumulator(rows: Int, columns: Int, width: Int) extends Module {
+class OutputAccumulator(rows: Int, columns: Int, width: Int, roundedFP32: Boolean = false) extends Module {
+  require(!roundedFP32 || width == 32, "Rounded accumulation stores FP32 words")
   private val columnWidth = math.max(1, log2Ceil(columns + 1))
   private val rowWidth = math.max(1, log2Ceil(rows + 1))
   private val depth = (columns + 1) / 2
@@ -43,7 +44,14 @@ class OutputAccumulator(rows: Int, columns: Int, width: Int) extends Module {
       previousWords(y), readWords(y)(io.updateColumn(0)))
     val oldValue = Mux(io.first, 0.S(width.W), oldWord(width - 1, 0).asSInt)
     val oldFlags = Mux(io.first, 0.U(3.W), oldWord(width + 2, width))
-    val sum = (oldValue + io.delta(y)).asUInt
+    val sum = if (roundedFP32) {
+      // Round every running-sum update to IEEE FP32 RNE. The incoming subtotal
+      // has already been rounded by the controller; no exact-width SRAM remains.
+      val add = Module(new FP32AccumulatorAdd)
+      add.io.a := oldValue.asUInt
+      add.io.b := io.delta(y).asUInt
+      add.io.result
+    } else (oldValue + io.delta(y)).asUInt
     val written = Cat(oldFlags | io.flags(y), sum)
     when(io.updateValid(y)) { previousWords(y) := written }
 

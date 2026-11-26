@@ -1,0 +1,12 @@
+status	ROUTED_TIMING_PASS
+stage	post_route
+failure	
+top	RegisteredContext
+part	xcu250-figd2104-2-e
+clock_port	clock
+period_ns	20
+clock_found	1
+worst_setup_slack_ns	0.851
+worst_hold_slack_ns	0.010
+estimated_fmax_mhz	52.222
+blackbox_count	0
