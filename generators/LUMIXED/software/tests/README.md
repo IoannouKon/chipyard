@@ -33,7 +33,7 @@ array to 8 bytes. GROUP_SIZE=32, 64, or 128 selects G at runtime.
 Group-scaled activation inputs must be finite. Scaled accumulators use 48
 fractional bits for FP16 activations or 173 for FP32. The legacy integer SCALE
 option is separate and must remain disabled in floating-point mode.
-Group modes currently require fixed banks, BRAM outputs, and the other optional
+Group modes currently require fixed banks and the other optional
 scheduling experiments disabled, as enforced by RTL requirements.
 
 ## Run
@@ -81,3 +81,7 @@ Four directed W8 cases covered subnormals, normal rounding ties, exact
 cancellation after oversized partial sums, and FP16-scale underflow (32/32).
 An odd-dimension W4 case X[3,33] * W[33,3], G=32 passed 9/9.
 All eight simulator processes exited 0. This run did not rebuild FP16 RTL.
+
+### Output storage
+
+LUMIXED output accumulation always uses synchronous SRAM and the existing four-entry DMA prefetch queue. The BRAM_OUTPUTS switch and the hardware num_filters parameter have been removed; omit those fields from generated hardware configurations. Output packing, RoCC commands and the C API are unchanged.

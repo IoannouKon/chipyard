@@ -124,7 +124,7 @@ Edit [Config.scala](src/main/scala/Config.scala). The checked-in default configu
 | `GROUP_SCALE_YS` | 1 | Scaling multipliers: 1..YS; YS preserves full parallelism |
 | `Dma_Ids` | 2 | Shared DMA source slots |
 | `DMA_Bytes / W_BUFFS` | 8 / 2 | DMA beat size / weight buffers |
-| `BRAM_OUTPUTS / DEBUG` | true / true | SRAM output storage / counters |
+| `DEBUG` | true | Hardware performance counters |
 | `GROUP_SCALE_ALIGNED` | false | Group-aligned window scheduling |
 | `GROUP_SCALE_DEFERRED` | true | Deferred fragment scaling |
 
@@ -132,7 +132,9 @@ Change build-time parameters before rebuilding the simulator. Runtime dimensions
 
 `GROUP_SCALE_YS` is a build-time setting. With group scaling enabled, a fragment is processed in `ceil(parallel_rows / GROUP_SCALE_YS)` row batches. Reduced scaler counts preserve exact arithmetic but can add FIFO backpressure and window-drain cycles; they do not change the software API.
 
-For group scaling, keep fixed bank grouping, BRAM outputs and 8-byte DMA. The RTL currently requires zero skipping, weight bursts and early buffer release to be disabled in these builds.
+Output accumulators always use synchronous SRAM with a four-entry output DMA prefetch queue; register-based output storage is no longer supported.
+
+For group scaling, keep fixed bank grouping and 8-byte DMA. The RTL currently requires zero skipping, weight bursts and early buffer release to be disabled in these builds.
 
 ### 3. Run a hardware smoke test
 
