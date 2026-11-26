@@ -11,7 +11,6 @@ case class LUMIXEDParams(
   minWeightBits:               Int,
   banks_per_row:               Int,
   parallel_rows:               Int,
-  num_filters:                 Int,
   Dma_Ids:                     Int,
   DMA_Bytes:                   Int,
   DEBUG:                       Boolean,
@@ -19,7 +18,6 @@ case class LUMIXEDParams(
   table_capacity_factor:       Int,
   FP_ACTIVATIONS:              Boolean = false,
   FP_BITS:                      Int = 16,
-  BRAM_OUTPUTS:                Boolean = false,
   EARLY_WEIGHT_BUFFER_RELEASE: Boolean = false,
   WEIGHT_DMA_BURSTS:            Boolean = false,
   MAX_WEIGHT_BURST_BYTES:       Int = 32,
@@ -71,10 +69,8 @@ object LUMIXED_Config {
     DMA_Bytes = 8, // Beat size; DMA_bits is derived as DMA_Bytes * 8.
     W_BUFFS   = 2, // Prefetch buffers, shared across parallel activation rows.
 
-    // 5. Output storage.
-    BRAM_OUTPUTS = true,  // Use synchronous SRAM for output accumulators.
+    // 5. SRAM output accumulation (always enabled).
     ROUNDED_ACCUMULATION = false, // Opt-in unscaled FP32: register each rounded subtotal/tag, then FP32 RNE accumulation; drain before advancing.
-    num_filters  = 1,     // Register-output bank allocation; only bank 0 is used.
 
     // 6. Optional scheduling experiments (disabled by default).
     // W8/input16: retain captured weight words so their buffer can refill early.

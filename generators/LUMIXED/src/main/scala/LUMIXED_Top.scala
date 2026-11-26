@@ -57,12 +57,12 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   // Maximum finite FP16 * signed W8 in units of 2^-24 is strictly below 2^47.
   val groupScaling = params.GROUP_SCALE_ALIGNED || params.GROUP_SCALE_DEFERRED
   require(!params.ROUNDED_ACCUMULATION ||
-    (params.FP_ACTIVATIONS && params.FP_BITS == 32 && params.BRAM_OUTPUTS && !groupScaling),
+    (params.FP_ACTIVATIONS && params.FP_BITS == 32 && !groupScaling),
     "Rounded accumulation currently requires unscaled FP32 with SRAM outputs")
   require(!(params.GROUP_SCALE_ALIGNED && params.GROUP_SCALE_DEFERRED), "Choose one group-scaling mode")
   if (groupScaling) {
     require(params.DMA_Bytes == 8, "Initial group scaling requires 8-byte DMA beats")
-    require(params.FP_ACTIVATIONS && params.BRAM_OUTPUTS && !params.FLEXIBLE_BANK_GROUPING &&
+    require(params.FP_ACTIVATIONS && !params.FLEXIBLE_BANK_GROUPING &&
       !params.SKIP_ZERO_WEIGHTS && !params.WEIGHT_DMA_BURSTS && !params.EARLY_WEIGHT_BUFFER_RELEASE,
       "Initial group scaling supports dense fixed-bank FP16 with SRAM outputs")
   }
@@ -74,8 +74,8 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val fpGeometry = params.FP_ACTIVATIONS
   val activationCells = params.DMA_bits / params.XBitWidth
   val activationDepth = (((1 << (params.WBitWidth - params.minWeightBits)) * params.table_capacity_factor) + activationCells - 1) / activationCells
-  require(!params.BRAM_OUTPUTS || params.OutBitWidth == 32,
-    "BRAM outputs support unscaled INT32 or FP32 output words")
+  require(params.OutBitWidth == 32,
+    "SRAM outputs require INT32 or FP32 output words")
 
   // === Command interface and instruction decode ===
   // ROCC interface
@@ -113,7 +113,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val groupingRows = if (params.FLEXIBLE_BANK_GROUPING)
     (0 to log2Ceil(params.parallel_rows)).map(1 << _) else Seq(params.parallel_rows)
   if (params.FLEXIBLE_BANK_GROUPING) {
-    require(params.FP_ACTIVATIONS && params.BRAM_OUTPUTS,
+    require(params.FP_ACTIVATIONS,
       "Flexible grouping initially supports FP16 with SRAM outputs")
     require(params.banks_per_row > 0 && isPow2(params.parallel_rows),
       "Flexible grouping requires positive B and power-of-two maximum YS")
@@ -159,7 +159,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val selectionValid = RegInit(VecInit(Seq.fill(4)(false.B)))
   val selectionColumn = Reg(Vec(4, UInt(log2Ceil(params.Cout + 1).W)))
   val selectionEnd = RegInit(VecInit(Seq.fill(4)(false.B)))
-  val selectionFirst = if (params.BRAM_OUTPUTS) Some(RegInit(VecInit(Seq.fill(4)(false.B)))) else None
+  val selectionFirst = RegInit(VecInit(Seq.fill(4)(false.B)))
   val weightBufferS2 = RegInit(0.U(log2Ceil(params.W_BUFFS).W))
   // A consumed W8 SRAM word supplies eight selection positions. Keep that word
   // outside the double buffer so DMA can refill it after its final read capture.
@@ -181,9 +181,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val max_blocks_in_sync_mem = regs_per_mem
 
   // === Output accumulators and activation/weight memories ===
-  val O_reg     = if (params.BRAM_OUTPUTS) None else Some(RegInit(VecInit(Seq.fill(params.num_filters)(VecInit(Seq.fill(params.parallel_rows)(VecInit(Seq.fill(params.Cout)(0.S(accumulatorWidth.W)))))))))  // Register for Output results
   val fpMeta = if (params.FP_ACTIVATIONS) Some(Reg(Vec(totalSyncMems, new FPProductMeta(params.FP_BITS)))) else None
-  val fpFlags = if (params.FP_ACTIVATIONS && !params.BRAM_OUTPUTS) Some(RegInit(VecInit(Seq.fill(params.parallel_rows)(VecInit(Seq.fill(params.Cout)(0.U(3.W))))))) else None
   val I_MEM = Seq.fill(totalSyncMems)(SyncReadMem(activationDepth, UInt(params.DMA_bits.W)))
   val W_MEM = Seq.fill(buffers, weightBanks) { SyncReadMem(regs_per_mem_w/8, UInt(params.DMA_bits.W))}
   val weightReadAddress = if (params.SKIP_ZERO_WEIGHTS) {
@@ -309,11 +307,9 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val counter_1 = RegInit(0.U(log2Ceil(RowsPerBlock + 2).W)) // Logical activation position during LUT generation.
   val counter_2 = RegInit(0.U(log2Ceil(RowsPerBlock + 2).W)) // Logical activation position during selection.
 
-  if (params.BRAM_OUTPUTS) {
-    selectionFirst.get(0) := selectionIssue && Mux(zeroSkipMode, zeroSkipFirst,
-      counter_2 === 0.U && cycleCount_2 === 0.U)
-    for (stage <- 1 until 4) selectionFirst.get(stage) := selectionFirst.get(stage - 1)
-  }
+  selectionFirst(0) := selectionIssue && Mux(zeroSkipMode, zeroSkipFirst,
+    counter_2 === 0.U && cycleCount_2 === 0.U)
+  for (stage <- 1 until 4) selectionFirst(stage) := selectionFirst(stage - 1)
 
   //Add registers to track the ongoing DMA transaction's mode
   val dma_send        = RegInit(false.B) //sending DMA requests to A channel on progress
@@ -537,7 +533,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   dma.io.d_ready   := false.B // Unused by DmaModule; each d_valid response is consumed.
 
   // === Activation chunk extenders ===
-  // Optional output SRAM: prefetch DMA words through a four-entry elastic queue.
+  // Output SRAM: prefetch DMA words through a four-entry elastic queue.
   // The reader has its own cursor so SRAM latency is hidden while DMA stalls.
   val groupEngine = if (groupScaling) Some(Module(new GroupScaleEngine(
     if (params.GROUP_SCALE_ALIGNED) 1 else weightBanks, params.parallel_rows,
@@ -546,7 +542,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   if (groupScaling) {
     val e = groupEngine.get
     e.io.valid := false.B
-    e.io.first := selectionFirst.get(3) && load_x_cnt === 1.U
+    e.io.first := selectionFirst(3) && load_x_cnt === 1.U
     e.io.column := selectionColumn(3)
     e.io.columns := cout_reg
     e.io.scaleWrite := false.B
@@ -563,9 +559,8 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
       e.io.values(b).foreach(_ := 0.S)
     }
   }
-  val outputMemory = if (params.BRAM_OUTPUTS)
-    Some(Module(new OutputAccumulator(params.parallel_rows, params.Cout, outputAccumulatorWidth,
-      params.ROUNDED_ACCUMULATION))) else None
+  val outputMemory = Module(new OutputAccumulator(params.parallel_rows, params.Cout,
+    outputAccumulatorWidth, params.ROUNDED_ACCUMULATION))
   val roundedSubtotals = if (params.ROUNDED_ACCUMULATION)
     Some(Seq.fill(params.parallel_rows)(Module(new FixedToFP32(accumulatorWidth, params.fpFractionalBits)))) else None
   roundedSubtotals.foreach(_.foreach { convert =>
@@ -581,7 +576,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   val roundedColumn = if (params.ROUNDED_ACCUMULATION)
     Some(RegEnable(selectionColumn(3), selectionValid(3))) else None
   val roundedFirst = if (params.ROUNDED_ACCUMULATION)
-    Some(RegEnable(selectionFirst.get(3) && load_x_cnt === 1.U, selectionValid(3))) else None
+    Some(RegEnable(selectionFirst(3) && load_x_cnt === 1.U, selectionValid(3))) else None
   val roundedWindowLast = if (params.ROUNDED_ACCUMULATION)
     Some(RegEnable(selectionEnd(3) && selectionColumn(3) === cout_reg - 1.U, selectionValid(3))) else None
   val roundedActiveRows = if (params.ROUNDED_ACCUMULATION)
@@ -593,80 +588,78 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
       for (y <- 0 until params.parallel_rows) { values(y) := roundedSubtotals.get(y).io.bits }
     }
   }
-  val outputWords = if (params.BRAM_OUTPUTS) Some(Module(new Queue(UInt(params.DMA_bits.W), 4))) else None
+  val outputWords = Module(new Queue(UInt(params.DMA_bits.W), 4))
   val outputReadIssue = WireDefault(false.B)
-  val outputReadPending = if (params.BRAM_OUTPUTS) RegNext(outputReadIssue, false.B) else false.B
-  val outputReadRow = if (params.BRAM_OUTPUTS) Some(RegInit(0.U(log2Ceil(params.parallel_rows + 1).W))) else None
-  val outputReadColumn = if (params.BRAM_OUTPUTS) Some(RegInit(0.U(log2Ceil(params.Cout + 1).W))) else None
-  val outputReadParity = if (params.BRAM_OUTPUTS) Some(RegInit(false.B)) else None
+  val outputReadPending = RegNext(outputReadIssue, false.B)
+  val outputReadRow = RegInit(0.U(log2Ceil(params.parallel_rows + 1).W))
+  val outputReadColumn = RegInit(0.U(log2Ceil(params.Cout + 1).W))
+  val outputReadParity = RegInit(false.B)
   val outputReadCount = WireDefault(0.U(2.W))
-  if (params.BRAM_OUTPUTS) {
-    val mem = outputMemory.get
-    val queue = outputWords.get
-    outputReadCount := (Mux(outputReadParity.get, 1.U, 2.U)).min(cout_reg - outputReadColumn.get)
-    mem.io.readValid := selectionValid(2)
-    mem.io.readColumn := selectionColumn(2)
-    mem.io.updateColumn := selectionColumn(3)
-    mem.io.first := selectionFirst.get(3) && load_x_cnt === 1.U
-    mem.io.updateValid.foreach(_ := false.B)
-    mem.io.delta.foreach(_ := 0.S)
-    mem.io.flags.foreach(_ := 0.U)
-    if (params.ROUNDED_ACCUMULATION) {
-      // Read the old value on the subtotal-register edge. SRAM data and the
-      // registered subtotal arrive together for addition on the following cycle.
-      // OutputAccumulator's existing previousWords bypass forwards back-to-back
-      // updates to the same column before SRAM read/write visibility catches up.
-      mem.io.readValid := selectionValid(3)
-      mem.io.readColumn := selectionColumn(3)
-      mem.io.updateColumn := roundedColumn.get
-      mem.io.first := roundedFirst.get
-      for (y <- 0 until params.parallel_rows) {
-        mem.io.updateValid(y) := roundedPending.get && roundedActiveRows.get(y)
-        mem.io.delta(y) := roundedValues.get(y).asSInt
-      }
+  val mem = outputMemory
+  val queue = outputWords
+  outputReadCount := (Mux(outputReadParity, 1.U, 2.U)).min(cout_reg - outputReadColumn)
+  mem.io.readValid := selectionValid(2)
+  mem.io.readColumn := selectionColumn(2)
+  mem.io.updateColumn := selectionColumn(3)
+  mem.io.first := selectionFirst(3) && load_x_cnt === 1.U
+  mem.io.updateValid.foreach(_ := false.B)
+  mem.io.delta.foreach(_ := 0.S)
+  mem.io.flags.foreach(_ := 0.U)
+  if (params.ROUNDED_ACCUMULATION) {
+    // Read the old value on the subtotal-register edge. SRAM data and the
+    // registered subtotal arrive together for addition on the following cycle.
+    // OutputAccumulator's existing previousWords bypass forwards back-to-back
+    // updates to the same column before SRAM read/write visibility catches up.
+    mem.io.readValid := selectionValid(3)
+    mem.io.readColumn := selectionColumn(3)
+    mem.io.updateColumn := roundedColumn.get
+    mem.io.first := roundedFirst.get
+    for (y <- 0 until params.parallel_rows) {
+      mem.io.updateValid(y) := roundedPending.get && roundedActiveRows.get(y)
+      mem.io.delta(y) := roundedValues.get(y).asSInt
     }
-    if (groupScaling) {
-      val out = groupEngine.get.io.out
-      mem.io.readValid := out.valid
-      mem.io.readColumn := out.bits.column
-      mem.io.updateColumn := RegEnable(out.bits.column, out.valid)
-      mem.io.first := RegEnable(out.bits.first, out.valid)
-      for (y <- 0 until params.parallel_rows) {
-        mem.io.updateValid(y) := groupWritePending && y.U < YS
-        mem.io.delta(y) := RegEnable(out.bits.delta(y), out.valid)
-      }
+  }
+  if (groupScaling) {
+    val out = groupEngine.get.io.out
+    mem.io.readValid := out.valid
+    mem.io.readColumn := out.bits.column
+    mem.io.updateColumn := RegEnable(out.bits.column, out.valid)
+    mem.io.first := RegEnable(out.bits.first, out.valid)
+    for (y <- 0 until params.parallel_rows) {
+      mem.io.updateValid(y) := groupWritePending && y.U < YS
+      mem.io.delta(y) := RegEnable(out.bits.delta(y), out.valid)
     }
-    mem.io.storeValid := outputReadIssue
-    mem.io.storeRow := outputReadRow.get
-    mem.io.storeColumn := outputReadColumn.get
-    mem.io.storeCount := outputReadCount
-    val count = RegEnable(outputReadCount, outputReadIssue)
-    val offset = RegEnable(outputReadParity.get, outputReadIssue)
-    val words = (0 until elems_per_chunk).map { i =>
-      val bits = if (params.ROUNDED_ACCUMULATION) {
-        mem.io.storeValues(i).asUInt // Stored sums are already IEEE FP32.
-      } else if (params.FP_ACTIVATIONS) {
-        val convert = Module(new FixedToFP32(accumulatorWidth, params.fpFractionalBits + (if (groupScaling) 24 else 0)))
-        convert.io.value := mem.io.storeValues(i)
-        convert.io.flags := mem.io.storeFlags(i)
-        convert.io.bits
-      } else mem.io.storeValues(i).asUInt
-      Mux(i.U < count, bits, 0.U(32.W))
-    }
-    queue.io.enq.valid := outputReadPending
-    queue.io.enq.bits := words.zipWithIndex.foldLeft(0.U(params.DMA_bits.W)) {
-      case (packed, (word, i)) => packed | (word << ((i.U + offset.asUInt) << 5))
-    }
-    queue.io.deq.ready := false.B
-    when(outputReadPending) { assert(queue.io.enq.ready, "Output prefetch queue overflow") }
-    when(outputReadIssue) {
-      val next = outputReadColumn.get + outputReadCount
-      outputReadParity.get := outputReadParity.get ^ outputReadCount(0)
-      when(next === cout_reg) {
-        outputReadColumn.get := 0.U
-        outputReadRow.get := outputReadRow.get + 1.U
-      }.otherwise { outputReadColumn.get := next }
-    }
+  }
+  mem.io.storeValid := outputReadIssue
+  mem.io.storeRow := outputReadRow
+  mem.io.storeColumn := outputReadColumn
+  mem.io.storeCount := outputReadCount
+  val count = RegEnable(outputReadCount, outputReadIssue)
+  val offset = RegEnable(outputReadParity, outputReadIssue)
+  val words = (0 until elems_per_chunk).map { i =>
+    val bits = if (params.ROUNDED_ACCUMULATION) {
+      mem.io.storeValues(i).asUInt // Stored sums are already IEEE FP32.
+    } else if (params.FP_ACTIVATIONS) {
+      val convert = Module(new FixedToFP32(accumulatorWidth, params.fpFractionalBits + (if (groupScaling) 24 else 0)))
+      convert.io.value := mem.io.storeValues(i)
+      convert.io.flags := mem.io.storeFlags(i)
+      convert.io.bits
+    } else mem.io.storeValues(i).asUInt
+    Mux(i.U < count, bits, 0.U(32.W))
+  }
+  queue.io.enq.valid := outputReadPending
+  queue.io.enq.bits := words.zipWithIndex.foldLeft(0.U(params.DMA_bits.W)) {
+    case (packed, (word, i)) => packed | (word << ((i.U + offset.asUInt) << 5))
+  }
+  queue.io.deq.ready := false.B
+  when(outputReadPending) { assert(queue.io.enq.ready, "Output prefetch queue overflow") }
+  when(outputReadIssue) {
+    val next = outputReadColumn + outputReadCount
+    outputReadParity := outputReadParity ^ outputReadCount(0)
+    when(next === cout_reg) {
+      outputReadColumn := 0.U
+      outputReadRow := outputReadRow + 1.U
+    }.otherwise { outputReadColumn := next }
   }
 
   // ChunkSignExtender Module
@@ -1647,35 +1640,17 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
               e.io.values(b)(y) := Mux(y.U < YS, value, 0.S)
             }
           } else for (y <- 0 until params.parallel_rows) {
-            if (params.BRAM_OUTPUTS) {
-              val mem = outputMemory.get
-              if (!params.ROUNDED_ACCUMULATION) mem.io.updateValid(y) := y.U < YS
-              if (params.ROUNDED_ACCUMULATION) {
-                // Keep the existing exact bank reduction; round once per
-                // selection token before the FP32 running-sum update.
-                val convert = roundedSubtotals.get(y)
-                convert.io.value := accum(y)
-                convert.io.flags := rowFlags(y)
-              } else mem.io.delta(y) := accum(y)
-              if (params.FP_ACTIVATIONS) {
-                mem.io.flags(y) := (if (params.ROUNDED_ACCUMULATION) 0.U else rowFlags(y))
-              }
-            } else if (params.parallel_rows == 1) {
-              O_reg.get(0)(y)(selectionColumn(3)) :=  (O_reg.get(0)(y)(selectionColumn(3)) +  accum(y))
-              if (params.FP_ACTIVATIONS) {
-                val flags = (0 until groupSize).map(i =>
-                  Mux(zeroSkipMode, 0.U, fpMeta.get(y * groupSize + i).flags)).reduce(_ | _)
-                fpFlags.get(y)(selectionColumn(3)) := fpFlags.get(y)(selectionColumn(3)) | flags
-              }
-            } else {
-              when(y.U < YS) {
-                O_reg.get(0)(y)(selectionColumn(3)) := O_reg.get(0)(y)(selectionColumn(3)) + accum(y)
-                if (params.FP_ACTIVATIONS) {
-                val flags = (0 until groupSize).map(i =>
-                  Mux(zeroSkipMode, 0.U, fpMeta.get(y * groupSize + i).flags)).reduce(_ | _)
-                  fpFlags.get(y)(selectionColumn(3)) := fpFlags.get(y)(selectionColumn(3)) | flags
-                }
-              }
+            val mem = outputMemory
+            if (!params.ROUNDED_ACCUMULATION) mem.io.updateValid(y) := y.U < YS
+            if (params.ROUNDED_ACCUMULATION) {
+              // Keep the existing exact bank reduction; round once per
+              // selection token before the FP32 running-sum update.
+              val convert = roundedSubtotals.get(y)
+              convert.io.value := accum(y)
+              convert.io.flags := rowFlags(y)
+            } else mem.io.delta(y) := accum(y)
+            if (params.FP_ACTIVATIONS) {
+              mem.io.flags(y) := (if (params.ROUNDED_ACCUMULATION) 0.U else rowFlags(y))
             }
           }
 
@@ -1708,7 +1683,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
 
       }
 
-      // The final tagged contribution updates O_reg on this edge. Only then
+      // The final tagged contribution retires into output SRAM. Only then
       // may the controller change K windows or expose outputs to the DMA.
       val selectionWindowLast = selectionValid(3) && selectionEnd(3) && (selectionColumn(3) === cout_reg - 1.U)
       if (groupScaling) { when(selectionWindowLast) { windowRetired.get := true.B } }
@@ -1736,11 +1711,9 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
           storeWritesIssued := 0.U
           dma_send := true.B
           state      := sStoreOutput
-          if (params.BRAM_OUTPUTS) {
-            outputReadRow.get := 0.U
-            outputReadColumn.get := 0.U
-            outputReadParity.get := i_o(0) && cout_reg(0)
-          }
+          outputReadRow := 0.U
+          outputReadColumn := 0.U
+          outputReadParity := i_o(0) && cout_reg(0)
         }.otherwise{
           val XS_temp = if (params.GROUP_SCALE_ALIGNED) groupWindow(clmp, j_x)
             else Mux(cin_reg - j_x >= x_slice_input_reg, x_slice_input_reg, cin_reg - j_x)
@@ -1815,10 +1788,8 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
         PC_storeO := PC_storeO + 1.U
       }
 
-      if (params.BRAM_OUTPUTS) {
-        outputReadIssue := outputReadRow.get < YS &&
-          (outputWords.get.io.count +& outputReadPending.asUInt) < 4.U
-      }
+      outputReadIssue := outputReadRow < YS &&
+        (outputWords.io.count +& outputReadPending.asUInt) < 4.U
 
       // Packing follows accepted requests, independently of late acknowledgements.
       val remaining_elems = cout_reg - dma_counter_a
@@ -1827,34 +1798,11 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
       val chunk_index   = linear_index / ((elems_per_chunk.U)) // Output DMA-word index.
       val chunk_address = adr_O + (chunk_index * 8.U)
 
-      when(dma_send && !dma.io.busy && (if (params.BRAM_OUTPUTS) outputWords.get.io.deq.valid else true.B)) {
+      when(dma_send && !dma.io.busy && outputWords.io.deq.valid) {
         dma.io.mode := true.B
 
-        if (params.BRAM_OUTPUTS) {
-          dma.io.writeData := outputWords.get.io.deq.bits
-          outputWords.get.io.deq.ready := dma.io.a_fire
-        } else if (params.FP_ACTIVATIONS) {
-          val words = (0 until elems_per_chunk).map { i =>
-            val index = dma_counter_a + i.U
-            val convert = Module(new FixedToFP32(accumulatorWidth, params.fpFractionalBits + (if (groupScaling) 24 else 0)))
-            convert.io.value := O_reg.get(0)(Rin_cnt)(index)
-            convert.io.flags := fpFlags.get(Rin_cnt)(index)
-            Mux(i.U < R_elems_per_chunk, convert.io.bits, 0.U(32.W))
-          }
-          dma.io.writeData := words.zipWithIndex.foldLeft(0.U(params.DMA_bits.W)) { case (packed, (word, i)) =>
-            packed | (word << ((i.U + done_elems_in_block) * params.OutBitWidth.U))
-          }
-        } else {
-
-          val data_chunk = (0 until elems_per_chunk).foldLeft(0.U(params.DMA_bits.W)) { (acc, i) =>
-            acc | Mux( i.U < R_elems_per_chunk,
-              O_reg.get(0)(Rin_cnt)(dma_counter_a + i.U).asUInt << ((i.U + done_elems_in_block) * params.OutBitWidth.U),
-              0.U(params.DMA_bits.W)
-            )
-          }
-
-          dma.io.writeData :=  data_chunk
-        }
+        dma.io.writeData := outputWords.io.deq.bits
+        outputWords.io.deq.ready := dma.io.a_fire
 
         // Enable only the output bytes carried by this DMA write.
         val beatBytes = 8  // Total number of byte lanes in a 64-bit word
@@ -1881,14 +1829,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
             dma_counter_a := dma_counter_a + R_elems_per_chunk
           }
 
-          if (!params.BRAM_OUTPUTS) {
-            for (i <- 0 until elems_per_chunk) {
-              when(i.U < R_elems_per_chunk) {
-                O_reg.get(0)(Rin_cnt)(dma_counter_a + i.U) := 0.S
-                if (params.FP_ACTIVATIONS) fpFlags.get(Rin_cnt)(dma_counter_a + i.U) := 0.U
-              }
-            }
-          }
+
 
         }
 
@@ -1900,8 +1841,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
 
       // Drain accepted DMA requests and buffered responses before completion
       // or before reinitializing the counters for another activation-row group.
-      val outputReadsDrained = if (params.BRAM_OUTPUTS)
-        !outputWords.get.io.deq.valid && !outputReadPending else true.B
+      val outputReadsDrained = !outputWords.io.deq.valid && !outputReadPending
       when(Rin_cnt === YS && !dma_send && dma_counter_d === storeWritesIssued && dma.io.empty && outputReadsDrained) {
         dma_resp := false.B
         when(loops_cnt === LOOPS -1.U){
