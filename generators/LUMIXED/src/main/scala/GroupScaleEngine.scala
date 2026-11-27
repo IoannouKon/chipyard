@@ -2,6 +2,7 @@ package LUMIXED_PACKAGE
 
 import chisel3._
 import chisel3.util._
+import hardfloat._
 
 /** Finite exact bank fragments -> exact FP16-scaled row vectors.
   * Activation fractional bits: 24/149; scaled fractional bits: 48/173.
@@ -12,7 +13,35 @@ import chisel3.util._
   * so arbitrarily ordered bank completions cannot overwrite an earlier sum.
   */
 class GroupScaleEngine(banks: Int, rows: Int, columns: Int, maxK: Int,
-                       partialWidth: Int, outputWidth: Int, scaleRows: Int) extends Module {
+                       partialWidth: Int, outputWidth: Int, scaleRows: Int, roundedFP32: Boolean = false) extends Module {
+  private val storedWidth = if (roundedFP32) 32 else outputWidth
+  // Exact mode retains full multiplication/alignment. Rounded mode carries an
+  // FP32 fragment and an exactly widened FP16 scale to the shared FP32 FMA.
+  def scaleBits(scale: UInt): UInt = {
+    // FP16 -> FP32 is an exact widening conversion, including signed zero and
+    // subnormals. HardFloat exposes the 13 appended zero significand bits so
+    // synthesis can specialize the FMA multiplier rather than prove a numeric
+    // invariant through a generic fixed-point normalization network.
+    val convert = Module(new RecFNToRecFN(5, 11, 8, 24))
+    convert.io.in := recFNFromFN(5, 11, scale)
+    convert.io.roundingMode := consts.round_near_even
+    convert.io.detectTininess := consts.tininess_afterRounding
+    fNFromRecFN(8, 24, convert.io.out)
+  }
+  def contribution(partial: SInt, scale: UInt): SInt = {
+    if (roundedFP32) {
+      val convert = Module(new FixedToFP32(partialWidth, 149))
+      convert.io.value := partial; convert.io.flags := 0.U
+      convert.io.bits.asSInt
+    } else {
+      val sig = Cat(0.U(1.W), FP16Activation.significand(scale)).asSInt
+      val signedSig = Mux(scale(15), -sig, sig)
+      val multiplier = Module(new ExactScaleMultiplier(partialWidth, signedSig.getWidth))
+      multiplier.io.partial := partial; multiplier.io.scale_sig := signedSig
+      val shifted = (multiplier.io.product.pad(outputWidth) << FP16Activation.shift(scale))(outputWidth - 1, 0).asSInt
+      shifted
+    }
+  }
   require(scaleRows >= 1 && scaleRows <= rows, "Scaling lanes must be between 1 and rows")
   private val cw = math.max(1, log2Ceil(columns + 1))
   private val gw = math.max(1, log2Ceil((maxK + 31) / 32 + 1))
@@ -41,7 +70,9 @@ class GroupScaleEngine(banks: Int, rows: Int, columns: Int, maxK: Int,
     val out = Valid(new Bundle {
       val column = UInt(cw.W)
       val first = Bool()
-      val delta = Vec(rows, SInt(outputWidth.W))
+      val delta = Vec(rows, SInt(storedWidth.W))
+      val scale = UInt(32.W)
+      val rowMask = UInt(rows.W)
     })
   })
   val scales = SyncReadMem(words, UInt(64.W))
@@ -87,18 +118,14 @@ class GroupScaleEngine(banks: Int, rows: Int, columns: Int, maxK: Int,
     selected.ready := true.B
     val scale = halves(offset)
     when(readValid && !tag.initialize) { assert(!scale(14, 10).andR, "Group scales must be finite FP16") }
-    val sig = Cat(0.U(1.W), FP16Activation.significand(scale)).asSInt
-    val signedSig = Mux(scale(15), -sig, sig)
     io.out.valid := RegNext(readValid, false.B)
     io.out.bits.column := RegEnable(tag.column, readValid)
     io.out.bits.first := RegEnable(tag.initialize, readValid)
+    io.out.bits.scale := (if (roundedFP32) RegEnable(scaleBits(scale), readValid) else "h3f800000".U)
+    io.out.bits.rowMask := ((BigInt(1) << rows) - 1).U
     for (y <- 0 until rows) {
-      val multiplier = Module(new ExactScaleMultiplier(partialWidth, signedSig.getWidth))
-      multiplier.io.partial := tag.partial(y)
-      multiplier.io.scale_sig := signedSig
-      val product = multiplier.io.product
-      val shifted = (product.pad(outputWidth) << FP16Activation.shift(scale))(outputWidth - 1, 0).asSInt
-      io.out.bits.delta(y) := RegEnable(Mux(tag.initialize, 0.S, shifted), readValid)
+      val value = contribution(tag.partial(y), scale)
+      io.out.bits.delta(y) := RegEnable(Mux(tag.initialize, 0.S, value), readValid)
     }
     io.empty := !initializes.io.deq.valid && !arb.io.out.valid && !readValid && !io.out.valid
   } else {
@@ -113,16 +140,10 @@ class GroupScaleEngine(banks: Int, rows: Int, columns: Int, maxK: Int,
     val heldScale = RegEnable(halves(offset), readValid)
     val scale = Mux(readValid, halves(offset), heldScale)
     when(readValid && !tag.initialize) { assert(!scale(14, 10).andR, "Group scales must be finite FP16") }
-    val sig = Cat(0.U(1.W), FP16Activation.significand(scale)).asSInt
-    val signedSig = Mux(scale(15), -sig, sig)
-    val results = Reg(Vec(rows, SInt(outputWidth.W)))
+    val results = Reg(Vec(rows, SInt(storedWidth.W)))
     val shifted = (0 until scaleRows).map { lane =>
       val row = batch * scaleRows.U + lane.U
-      val multiplier = Module(new ExactScaleMultiplier(partialWidth, signedSig.getWidth))
-      // A final incomplete batch has inactive lanes; never index outside the vector.
-      multiplier.io.partial := Mux(row < rows.U, tag.partial(row), 0.S)
-      multiplier.io.scale_sig := signedSig
-      (multiplier.io.product.pad(outputWidth) << FP16Activation.shift(scale))(outputWidth - 1, 0).asSInt
+      contribution(Mux(row < rows.U, tag.partial(row), 0.S), scale)
     }
     when(processing) {
       when(lastBatch) {
@@ -140,9 +161,22 @@ class GroupScaleEngine(banks: Int, rows: Int, columns: Int, maxK: Int,
         }
       }
     }
-    io.out.valid := RegNext(processing && lastBatch, false.B)
-    io.out.bits.column := RegEnable(tag.column, processing && lastBatch)
-    io.out.bits.first := RegEnable(tag.initialize, processing && lastBatch)
+    if (roundedFP32) {
+      // Preserve the original fragment/FIFO schedule, but retire one row batch
+      // per cycle into matching shared FMA lanes. Initialization bypasses FMA.
+      val batchMask = VecInit((0 until rows).map(y => tag.initialize || batch === (y / scaleRows).U)).asUInt
+      io.out.valid := RegNext(processing, false.B)
+      io.out.bits.column := RegEnable(tag.column, processing)
+      io.out.bits.first := RegEnable(tag.initialize, processing)
+      io.out.bits.scale := RegEnable(scaleBits(scale), processing)
+      io.out.bits.rowMask := RegEnable(batchMask, processing)
+    } else {
+      io.out.valid := RegNext(processing && lastBatch, false.B)
+      io.out.bits.column := RegEnable(tag.column, processing && lastBatch)
+      io.out.bits.first := RegEnable(tag.initialize, processing && lastBatch)
+      io.out.bits.scale := "h3f800000".U
+      io.out.bits.rowMask := ((BigInt(1) << rows) - 1).U
+    }
     io.out.bits.delta := results
     io.empty := !initializes.io.deq.valid && !arb.io.out.valid && !readValid && !busy && !io.out.valid
   }

@@ -56,9 +56,10 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   }
   // Maximum finite FP16 * signed W8 in units of 2^-24 is strictly below 2^47.
   val groupScaling = params.GROUP_SCALE_ALIGNED || params.GROUP_SCALE_DEFERRED
+  val unscaledRounded = params.ROUNDED_ACCUMULATION && !groupScaling
   require(!params.ROUNDED_ACCUMULATION ||
-    (params.FP_ACTIVATIONS && params.FP_BITS == 32 && !groupScaling),
-    "Rounded accumulation currently requires unscaled FP32 with SRAM outputs")
+    (params.FP_ACTIVATIONS && params.FP_BITS == 32),
+    "Rounded accumulation requires FP32 activations and output")
   require(!(params.GROUP_SCALE_ALIGNED && params.GROUP_SCALE_DEFERRED), "Choose one group-scaling mode")
   if (groupScaling) {
     require(params.DMA_Bytes == 8, "Initial group scaling requires 8-byte DMA beats")
@@ -539,7 +540,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   // The reader has its own cursor so SRAM latency is hidden while DMA stalls.
   val groupEngine = if (groupScaling) Some(Module(new GroupScaleEngine(
     if (params.GROUP_SCALE_ALIGNED) 1 else weightBanks, params.parallel_rows,
-    params.Cout, params.Cin, partialWidth, accumulatorWidth, params.GROUP_SCALE_YS))) else None
+    params.Cout, params.Cin, partialWidth, accumulatorWidth, params.GROUP_SCALE_YS, params.ROUNDED_ACCUMULATION))) else None
   val groupWritePending = if (groupScaling) RegNext(groupEngine.get.io.out.valid, false.B) else false.B
   if (groupScaling) {
     val e = groupEngine.get
@@ -562,8 +563,8 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
     }
   }
   val outputMemory = Module(new OutputAccumulator(params.parallel_rows, params.Cout,
-    outputAccumulatorWidth, params.ROUNDED_ACCUMULATION))
-  val roundedSubtotals = if (params.ROUNDED_ACCUMULATION)
+    outputAccumulatorWidth, params.ROUNDED_ACCUMULATION, params.ROUNDED_ACCUMULATION && groupScaling, params.GROUP_SCALE_YS))
+  val roundedSubtotals = if (unscaledRounded)
     Some(Seq.fill(params.parallel_rows)(Module(new FixedToFP32(accumulatorWidth, params.fpFractionalBits)))) else None
   roundedSubtotals.foreach(_.foreach { convert =>
     convert.io.value := 0.S
@@ -573,17 +574,17 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   // Exact mode keeps its original retirement path without this extra stage.
   // Keep tags/row validity with their payload; the input-side column may already
   // have advanced. No extra delay is added to weight reads or buffer release.
-  val roundedPending = if (params.ROUNDED_ACCUMULATION)
+  val roundedPending = if (unscaledRounded)
     Some(RegNext(selectionValid(3), false.B)) else None
-  val roundedColumn = if (params.ROUNDED_ACCUMULATION)
+  val roundedColumn = if (unscaledRounded)
     Some(RegEnable(selectionColumn(3), selectionValid(3))) else None
-  val roundedFirst = if (params.ROUNDED_ACCUMULATION)
+  val roundedFirst = if (unscaledRounded)
     Some(RegEnable(selectionFirst(3) && load_x_cnt === 1.U, selectionValid(3))) else None
-  val roundedWindowLast = if (params.ROUNDED_ACCUMULATION)
+  val roundedWindowLast = if (unscaledRounded)
     Some(RegEnable(selectionEnd(3) && selectionColumn(3) === cout_reg - 1.U, selectionValid(3))) else None
-  val roundedActiveRows = if (params.ROUNDED_ACCUMULATION)
+  val roundedActiveRows = if (unscaledRounded)
     Some(RegEnable(VecInit((0 until params.parallel_rows).map(y => y.U < YS)), selectionValid(3))) else None
-  val roundedValues = if (params.ROUNDED_ACCUMULATION)
+  val roundedValues = if (unscaledRounded)
     Some(Reg(Vec(params.parallel_rows, UInt(32.W)))) else None
   roundedValues.foreach { values =>
     when(selectionValid(3)) {
@@ -607,7 +608,8 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
   mem.io.updateValid.foreach(_ := false.B)
   mem.io.delta.foreach(_ := 0.S)
   mem.io.flags.foreach(_ := 0.U)
-  if (params.ROUNDED_ACCUMULATION) {
+  mem.io.scale := "h3f800000".U
+  if (unscaledRounded) {
     // Read the old value on the subtotal-register edge. SRAM data and the
     // registered subtotal arrive together for addition on the following cycle.
     // OutputAccumulator's existing previousWords bypass forwards back-to-back
@@ -627,8 +629,10 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
     mem.io.readColumn := out.bits.column
     mem.io.updateColumn := RegEnable(out.bits.column, out.valid)
     mem.io.first := RegEnable(out.bits.first, out.valid)
+    mem.io.scale := RegEnable(out.bits.scale, out.valid)
+    val retiredRows = RegEnable(out.bits.rowMask, out.valid)
     for (y <- 0 until params.parallel_rows) {
-      mem.io.updateValid(y) := groupWritePending && y.U < YS
+      mem.io.updateValid(y) := groupWritePending && retiredRows(y) && y.U < YS
       mem.io.delta(y) := RegEnable(out.bits.delta(y), out.valid)
     }
   }
@@ -954,7 +958,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
     }
     // === sLoadX: load activation rows into scratchpads ===
     is(sLoadX) {
-      if (params.ROUNDED_ACCUMULATION) {
+      if (unscaledRounded) {
         assert(!roundedPending.get, "Activation window changed before rounded updates drained")
       }
       if(params.DEBUG){
@@ -1643,8 +1647,8 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
             }
           } else for (y <- 0 until params.parallel_rows) {
             val mem = outputMemory
-            if (!params.ROUNDED_ACCUMULATION) mem.io.updateValid(y) := y.U < YS
-            if (params.ROUNDED_ACCUMULATION) {
+            if (!unscaledRounded) mem.io.updateValid(y) := y.U < YS
+            if (unscaledRounded) {
               // Keep the existing exact bank reduction; round once per
               // selection token before the FP32 running-sum update.
               val convert = roundedSubtotals.get(y)
@@ -1652,7 +1656,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
               convert.io.flags := rowFlags(y)
             } else mem.io.delta(y) := accum(y)
             if (params.FP_ACTIVATIONS) {
-              mem.io.flags(y) := (if (params.ROUNDED_ACCUMULATION) 0.U else rowFlags(y))
+              mem.io.flags(y) := (if (unscaledRounded) 0.U else rowFlags(y))
             }
           }
 
@@ -1691,7 +1695,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
       if (groupScaling) { when(selectionWindowLast) { windowRetired.get := true.B } }
       val finishWindow = if (groupScaling)
         windowRetired.get && groupEngine.get.io.empty && !groupWritePending
-        else if (params.ROUNDED_ACCUMULATION) roundedPending.get && roundedWindowLast.get
+        else if (unscaledRounded) roundedPending.get && roundedWindowLast.get
         else selectionWindowLast
       when(finishWindow) {
         if (groupScaling) windowRetired.get := false.B
@@ -1783,7 +1787,7 @@ class LUMIXEDExampleModuleImpl(outer: LUMIXEDExample)(implicit p: Parameters) ex
 
     // === sStoreOutput: convert/store output rows and advance row groups ===
     is(sStoreOutput) {
-      if (params.ROUNDED_ACCUMULATION) {
+      if (unscaledRounded) {
         assert(!roundedPending.get, "Output storage started before rounded updates drained")
       }
       if(params.DEBUG){
