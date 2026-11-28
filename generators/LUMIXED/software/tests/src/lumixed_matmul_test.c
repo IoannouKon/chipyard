@@ -40,6 +40,14 @@
 #define LUMIXED_FP_BITS 16
 #endif
 
+// Test-side metadata only; rounding is an elaboration-time RTL option.
+#ifndef LUMIXED_ROUNDED_ACCUMULATION
+#define LUMIXED_ROUNDED_ACCUMULATION 0
+#endif
+#if LUMIXED_ROUNDED_ACCUMULATION && (!LUMIXED_FP_ACTIVATIONS || LUMIXED_FP_BITS != 32)
+#error "Rounded accumulation requires FP32 activations/output"
+#endif
+
 // Allow runtime bank regrouping when implemented by the hardware.
 #ifndef LUMIXED_FLEXIBLE_BANK_GROUPING
 #define LUMIXED_FLEXIBLE_BANK_GROUPING 0
@@ -217,7 +225,11 @@ int main() {
     printf("Group scaling: disabled\n");
     #endif
     #ifdef LUMIXED_PREGENERATED_TEST
+    #if LUMIXED_ROUNDED_ACCUMULATION
+    printf("Reference: host numerical acceptance against exact Python baseline; rounding changes result bits\n");
+    #else
     printf("Reference: pregenerated Python vectors (exact FP32 bits or integers)\n");
+    #endif
     #else
     printf("Reference: C calculation\n");
     #endif
@@ -340,7 +352,14 @@ int main() {
         }
     #endif
 
-    #if FPU == 0
+    #if LUMIXED_ROUNDED_ACCUMULATION
+        if (!fast_mode) {
+            for (int f = 0; f < p.num_filters; f++)
+                lumixed_emit_fp32_outputs(outputMatrix_HW[f], f, p.Rin, COUT[f]);
+            // The runner must check every host-emitted element. This is not PASS.
+            printf("NUMERICAL_CHECK=HOST_REQUIRED\n");
+        }
+    #elif FPU == 0
         if (!fast_mode) {
             for (int f = 0; f < p.num_filters; f++) {
                 printf("Filter %d\n", f);

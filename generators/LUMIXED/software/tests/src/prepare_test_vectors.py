@@ -15,6 +15,9 @@ This is a mathematical reference, not a simulation of RoCC/DMA timing.
 """
 from __future__ import annotations
 import argparse
+import math
+import re
+import struct
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -179,11 +182,15 @@ class Vectors:
     fp_activations: bool
     group_scale_mode: int
     group_size: int
+    rounded_accumulation: bool = False
 
 
 def prepare(rin: int, cin: int, cout: int, in_bits: int, w_bits: int,
             seed: int = 1, pattern: int = 0, *, fp_activations: bool = False,
-            group_scale_mode: int = 0, group_size: int = 64) -> Vectors:
+            group_scale_mode: int = 0, group_size: int = 64,
+            rounded_accumulation: bool = False) -> Vectors:
+    if rounded_accumulation and (not fp_activations or in_bits != 32):
+        raise ValueError('Rounded accumulation requires FP32 activations/output')
     if min(rin, cin, cout) < 1 or in_bits not in (8, 16, 32) or w_bits not in (2, 4, 8):
         raise ValueError('Invalid matrix size or element precision')
     if pattern not in (0, 1, 2):
@@ -246,7 +253,7 @@ def prepare(rin: int, cin: int, cout: int, in_bits: int, w_bits: int,
     else:
         expected = int_matmul(inputs, q, rin, cin, cout)
     return Vectors(inputs, packed, expected, scales, fp_activations,
-                   group_scale_mode, group_size)
+                   group_scale_mode, group_size, rounded_accumulation)
 
 
 def _array(name: str, ctype: str, values: list[int], *, align8: bool = False) -> list[str]:
@@ -263,10 +270,11 @@ def _array(name: str, ctype: str, values: list[int], *, align8: bool = False) ->
 def write_header(path: str | Path, rin: int, cin: int, cout: int, in_bits: int,
                  w_bits: int, seed: int = 1, pattern: int = 0, *,
                  fp_activations: bool = False, group_scale_mode: int = 0,
-                 group_size: int = 64) -> Vectors:
+                 group_size: int = 64, rounded_accumulation: bool = False) -> Vectors:
     data = prepare(rin, cin, cout, in_bits, w_bits, seed, pattern,
                    fp_activations=fp_activations,
-                   group_scale_mode=group_scale_mode, group_size=group_size)
+                   group_scale_mode=group_scale_mode, group_size=group_size,
+                   rounded_accumulation=rounded_accumulation)
     mode = ('integer', f'fp{in_bits}', 'group-aligned' if group_scale_mode == 1 else 'group-deferred')[
         2 if group_scale_mode else (1 if fp_activations else 0)]
     lines = [
@@ -283,6 +291,11 @@ def write_header(path: str | Path, rin: int, cin: int, cout: int, in_bits: int,
         f'#if LUMIXED_FP_ACTIVATIONS && LUMIXED_FP_BITS != {in_bits}',
         '#error "Python activation precision and hardware differ"',
         '#endif',
+        f'#if LUMIXED_ROUNDED_ACCUMULATION != {int(rounded_accumulation)}',
+        '#error "Python vector metadata and software rounding mode differ"',
+        '#endif',
+        '// Reference remains the exact mathematical baseline. Rounded validation',
+        '// requires host numerical acceptance, not an assumed FMA retirement order.',
         f'#define LUMIXED_VECTOR_GROUP_SIZE {group_size if group_scale_mode else 0}',
     ]
     lines += _array('input', 'input_t', data.inputs)
@@ -298,6 +311,64 @@ def write_header(path: str | Path, rin: int, cin: int, cout: int, in_bits: int,
     return data
 
 
+def verify_rounded_log(path: str | Path, data: Vectors, rows: int, columns: int,
+                       atol: float = 0.0, rtol: float = 0.0) -> dict:
+    """Numerical acceptance against exact sums, NOT bit-exact rounded verification.
+
+    A rounded FMA reference needs actual fragment retirement order. This general
+    bare-metal runner does not capture it, so it explicitly checks the chosen
+    error bound against the independent exact baseline instead. Default bounds
+    are zero; nonzero tolerances must be requested by the caller.
+    """
+    if not data.rounded_accumulation:
+        raise ValueError('Host rounded verification requires rounded metadata')
+    if not all(math.isfinite(v) and v >= 0 for v in (atol, rtol)):
+        raise ValueError('Numerical tolerances must be finite and nonnegative')
+    text = Path(path).read_text(errors='replace')
+    if 'NUMERICAL_CHECK=HOST_REQUIRED' not in text:
+        raise ValueError('Missing host-verification marker; result is unverified')
+    outputs = {}
+    for filt, row, col, bits in re.findall(
+            r'^LUMIXED_OUTPUT (\d+) (\d+) (\d+) ([0-9a-fA-F]{8})\s*$', text, re.M):
+        key = (int(row), int(col))
+        if int(filt) != 0 or not (0 <= key[0] < rows and 0 <= key[1] < columns):
+            raise ValueError('Output index outside the requested single-filter matrix')
+        if key in outputs:
+            raise ValueError('Duplicate hardware output index')
+        outputs[key] = int(bits, 16)
+    if len(outputs) != rows * columns:
+        raise ValueError(f'Incomplete output: {len(outputs)}/{rows*columns}')
+    exact = failures = unexpected_nonfinite = 0
+    errors, values = [], []
+    for row in range(rows):
+        for col in range(columns):
+            hw = outputs[row, col]
+            sw = data.expected[row * columns + col]
+            exact += hw == sw
+            actual = struct.unpack('<f', struct.pack('<I', hw))[0]
+            expected = struct.unpack('<f', struct.pack('<I', sw))[0]
+            if math.isfinite(actual) and math.isfinite(expected):
+                error = abs(actual - expected)
+                errors.append(error); values.append(expected)
+                failures += error > atol + rtol * abs(expected)
+            elif math.isnan(actual) and math.isnan(expected):
+                pass
+            elif actual == expected:
+                pass
+            else:
+                failures += 1
+                unexpected_nonfinite += not math.isfinite(actual) and math.isfinite(expected)
+    norm = math.fsum(v*v for v in values)
+    result = dict(result='PASS' if failures == 0 else 'FAIL',
+                  reference='numerical acceptance vs exact mathematical baseline; not exact rounded-order verification',
+                  outputs=rows*columns, bit_matches=exact, failures=failures,
+                  atol=atol, rtol=rtol, max_abs=max(errors, default=0.0),
+                  rmse=math.sqrt(math.fsum(e*e for e in errors)/max(1,len(errors))),
+                  relative_l2=math.sqrt(math.fsum(e*e for e in errors)/norm) if norm else None,
+                  unexpected_nonfinite=unexpected_nonfinite)
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('rin', 'cin', 'cout', 'in_bits', 'w_bits'):
@@ -307,13 +378,31 @@ def main() -> None:
     parser.add_argument('--fp-activations', type=int, choices=(0, 1), default=0)
     parser.add_argument('--group-scale-mode', type=int, choices=(0, 1, 2), default=0)
     parser.add_argument('--group-size', type=int, default=64)
-    parser.add_argument('--output', required=True)
+    parser.add_argument('--rounded-accumulation', type=int, choices=(0, 1), default=0)
+    parser.add_argument('--verify-log')
+    parser.add_argument('--atol', type=float, default=0.0)
+    parser.add_argument('--rtol', type=float, default=0.0)
+    parser.add_argument('--output')
     args = parser.parse_args()
+    if args.verify_log:
+        import json
+        data = prepare(args.rin, args.cin, args.cout, args.in_bits, args.w_bits,
+                       args.seed, args.pattern, fp_activations=bool(args.fp_activations),
+                       group_scale_mode=args.group_scale_mode, group_size=args.group_size,
+                       rounded_accumulation=bool(args.rounded_accumulation))
+        result = verify_rounded_log(args.verify_log, data, args.rin, args.cout, args.atol, args.rtol)
+        print(json.dumps(result, sort_keys=True))
+        if result['result'] != 'PASS':
+            raise SystemExit(1)
+        return
+    if not args.output:
+        parser.error('--output is required when not verifying a log')
     data = write_header(args.output, args.rin, args.cin, args.cout,
                         args.in_bits, args.w_bits, args.seed, args.pattern,
                         fp_activations=bool(args.fp_activations),
                         group_scale_mode=args.group_scale_mode,
-                        group_size=args.group_size)
+                        group_size=args.group_size,
+                        rounded_accumulation=bool(args.rounded_accumulation))
     print(f'Python reference ready: {len(data.expected)} outputs; '
           f'FP={int(data.fp_activations)}, group mode={data.group_scale_mode}, '
           f'group size={data.group_size if data.group_scale_mode else "off"}')

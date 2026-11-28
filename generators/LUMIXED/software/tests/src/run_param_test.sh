@@ -102,6 +102,14 @@ FP_FLAG=$(extract_bool FP_ACTIVATIONS)
 FP_BITS=$(extract_number FP_BITS)
 ALIGNED_FLAG=$(extract_bool GROUP_SCALE_ALIGNED)
 DEFERRED_FLAG=$(extract_bool GROUP_SCALE_DEFERRED)
+ROUND_FLAG=$(extract_bool ROUNDED_ACCUMULATION)
+[[ "$ROUND_FLAG" == true || "$ROUND_FLAG" == false ]] || { echo "Cannot read ROUNDED_ACCUMULATION" >&2; exit 2; }
+ROUND_MODE=0
+[[ "$ROUND_FLAG" != true ]] || ROUND_MODE=1
+# Rounded arithmetic is checked on the host: no CPU floating-point instructions.
+# Default zero tolerances are strict; choosing nonzero tolerances is explicit.
+ROUNDED_ATOL=${ROUNDED_ATOL:-0}
+ROUNDED_RTOL=${ROUNDED_RTOL:-0}
 
 [[ "$FP_FLAG" == true || "$FP_FLAG" == false ]] || {
   echo 'Cannot read FP_ACTIVATIONS from Config.scala.' >&2
@@ -139,6 +147,9 @@ fi
 if (( GROUP_SCALE_MODE )) && { [[ "$FP_MODE" != 1 ]] || [[ "$W_BITS" != 2 && "$W_BITS" != 4 && "$W_BITS" != 8 ]]; }; then
   echo 'Group scaling requires FP_ACTIVATIONS=true and W_BITS=2, 4 or 8.' >&2
   exit 2
+fi
+if (( ROUND_MODE )) && { [[ "$FP_MODE" != 1 || "$FP_BITS" != 32 || "$FAST_VECTORS" != 1 ]]; }; then
+  echo 'Rounded tests require FP32 activations and FAST_VECTORS=1.' >&2; exit 2
 fi
 if (( GROUP_SCALE_MODE )) && [[ "$FAST_VECTORS" != 1 ]]; then
   echo 'Group-scaling tests require FAST_VECTORS=1; C reference has no per-group scaling.' >&2
@@ -225,12 +236,13 @@ if [[ "$FAST_VECTORS" == 1 ]]; then
     --fp-activations "$FP_MODE" \
     --group-scale-mode "$GROUP_SCALE_MODE" \
     --group-size "$GROUP_SIZE" \
+    --rounded-accumulation "$ROUND_MODE" \
     --output "$SCRIPT_DIR/lumixed_test_vectors.h"
 
   VECTOR_FLAGS="-DLUMIXED_PREGENERATED_TEST=1"
 fi
 
-TEST_CFLAGS="${TEST_CFLAGS:--O2} $VECTOR_FLAGS -DLUMIXED_FP_ACTIVATIONS=$FP_MODE -DLUMIXED_FP_BITS=$FP_BITS -DLUMIXED_GROUP_SCALE_MODE=$GROUP_SCALE_MODE -DLUMIXED_QUIET_TEST=${QUIET_TEST:-1} -DLUMIXED_TEST_SEED=${TEST_SEED:-1} -DLUMIXED_TEST_PATTERN=${TEST_PATTERN:-0}" \
+TEST_CFLAGS="${TEST_CFLAGS:--O2} $VECTOR_FLAGS -DLUMIXED_FP_ACTIVATIONS=$FP_MODE -DLUMIXED_FP_BITS=$FP_BITS -DLUMIXED_GROUP_SCALE_MODE=$GROUP_SCALE_MODE -DLUMIXED_ROUNDED_ACCUMULATION=$ROUND_MODE -DLUMIXED_QUIET_TEST=${QUIET_TEST:-1} -DLUMIXED_TEST_SEED=${TEST_SEED:-1} -DLUMIXED_TEST_PATTERN=${TEST_PATTERN:-0}" \
   bash ./build.sh baremetal
 
 # -----------------------------------------------------------------------------
@@ -242,10 +254,10 @@ LOG_BASE=$(realpath "$LOG_BASE")
 
 if [[ "${LUMIXED_LOG_FLAT:-0}" == 1 ]]; then
   SUB_LOG_DIR="$LOG_BASE"
-  LOG_FILE="$SUB_LOG_DIR/X${RIN}x${CIN}_W${CIN}x${COUT}_A${IN_BITS}_W${W_BITS}_FP${FP_MODE}_GS${GROUP_SCALE_MODE}_G${GROUP_SIZE}.log"
+  LOG_FILE="$SUB_LOG_DIR/X${RIN}x${CIN}_W${CIN}x${COUT}_A${IN_BITS}_W${W_BITS}_FP${FP_MODE}_GS${GROUP_SCALE_MODE}_G${GROUP_SIZE}_ROUND${ROUND_MODE}.log"
 else
   SUB_LOG_DIR="$LOG_BASE/banks_per_row=${banks_per_row}_parallel_rows=${parallel_rows}_table_capacity_factor=${table_capacity_factor}"
-  LOG_FILE="$SUB_LOG_DIR/RIN=${RIN}_CIN=${CIN}_COUT=${COUT}_INBITS=${IN_BITS}_WBITS=${W_BITS}_FP16=${FP_MODE}_GROUPMODE=${GROUP_SCALE_MODE}_G=${GROUP_SIZE}.txt"
+  LOG_FILE="$SUB_LOG_DIR/RIN=${RIN}_CIN=${CIN}_COUT=${COUT}_INBITS=${IN_BITS}_WBITS=${W_BITS}_FP16=${FP_MODE}_GROUPMODE=${GROUP_SCALE_MODE}_G=${GROUP_SIZE}_ROUND=${ROUND_MODE}.txt"
 fi
 
 mkdir -p "$SUB_LOG_DIR"
@@ -255,6 +267,7 @@ mkdir -p "$SUB_LOG_DIR"
     "$CONFIG" "$banks_per_row" "$parallel_rows" "$table_capacity_factor" "$RIN" "$CIN" "$COUT" "$IN_BITS" "$W_BITS"
   printf 'TEST_SEED=%s QUIET_TEST=%s TEST_PATTERN=%s\n' \
     "${TEST_SEED:-1}" "${QUIET_TEST:-1}" "${TEST_PATTERN:-0}"
+  printf 'ROUNDED_ACCUMULATION=%s ROUNDED_ATOL=%s ROUNDED_RTOL=%s\n' "$ROUND_MODE" "$ROUNDED_ATOL" "$ROUNDED_RTOL"
   printf 'FAST_VECTORS=%s\n' "$FAST_VECTORS"
   printf 'FP_ACTIVATIONS=%s GROUP_SCALE_MODE=%s GROUP_SIZE=%s\n' \
     "$FP_MODE" "$GROUP_SCALE_MODE" "$GROUP_SIZE"
@@ -313,8 +326,22 @@ LOG_STATUS=${PIPE_STATUSES[1]}
 set -e
 
 # -----------------------------------------------------------------------------
-# 11. Report PASS/FAIL based on the C reference comparison
+# 11. Exact C verification, or explicit host numerical acceptance for rounded
 # -----------------------------------------------------------------------------
+if (( ROUND_MODE )); then
+  if (( SIM_STATUS != 0 || LOG_STATUS != 0 )) || grep -q '^FAIL ' "$LOG_FILE"; then
+    printf 'TEST [FAIL] simulator_exit=%s log_exit=%s\n' "$SIM_STATUS" "$LOG_STATUS" | tee -a "$LOG_FILE"
+    exit 1
+  fi
+  python3 "$SCRIPT_DIR/prepare_test_vectors.py" \
+    "$RIN" "$CIN" "$COUT" "$IN_BITS" "$W_BITS" \
+    --seed "${TEST_SEED:-1}" --pattern "${TEST_PATTERN:-0}" \
+    --fp-activations "$FP_MODE" --group-scale-mode "$GROUP_SCALE_MODE" \
+    --group-size "$GROUP_SIZE" --rounded-accumulation 1 \
+    --verify-log "$LOG_FILE" --atol "$ROUNDED_ATOL" --rtol "$ROUNDED_RTOL" | tee -a "$LOG_FILE"
+  echo 'TEST [PASS] rounded numerical acceptance against exact baseline; not bit-exact rounded-reference verification' | tee -a "$LOG_FILE"
+  exit 0
+fi
 if (( SIM_STATUS == 0 && LOG_STATUS == 0 )) && \
    grep -q '^PASS (All elements' "$LOG_FILE" && \
    ! grep -q '^FAIL ' "$LOG_FILE"; then

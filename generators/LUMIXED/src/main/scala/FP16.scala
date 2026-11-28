@@ -21,6 +21,29 @@ class FP32AccumulatorAdd extends Module {
   io.result := Mux(bits(30, 23).andR && bits(22, 0).orR, "h7fc00000".U, bits)
 }
 
+/** Single-round IEEE FP32 fused multiply-add. No intermediate product rounding.
+  * The scale originates in finite FP16, but its exact FP32 encoding is carried
+  * to HardFloat. A standard FMA is the initial reference implementation: do not
+  * assume synthesis specializes the low significand bits without measurement.
+  */
+class FP32AccumulatorFMA extends Module {
+  val io = IO(new Bundle {
+    val fragment = Input(UInt(32.W))
+    val scale = Input(UInt(32.W))
+    val previous = Input(UInt(32.W))
+    val result = Output(UInt(32.W))
+  })
+  val fma = Module(new MulAddRecFN(8, 24))
+  fma.io.op := 0.U
+  fma.io.a := recFNFromFN(8, 24, io.fragment)
+  fma.io.b := recFNFromFN(8, 24, io.scale)
+  fma.io.c := recFNFromFN(8, 24, io.previous)
+  fma.io.roundingMode := consts.round_near_even
+  fma.io.detectTininess := consts.tininess_afterRounding
+  val bits = fNFromRecFN(8, 24, fma.io.out)
+  io.result := Mux(bits(30, 23).andR && bits(22, 0).orR, "h7fc00000".U, bits)
+}
+
 /** Decode binary16/binary32 exactly as an integer significand and binary shift.
   * Finite values use units of 2^-24 (FP16) or 2^-149 (FP32).
   */

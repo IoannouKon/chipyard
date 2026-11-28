@@ -44,6 +44,7 @@ case class LUMIXEDParams(
   // 8. Instrumentation
   DEBUG: Boolean,
 
+
 ) {
 
   // Derived hardware parameters
@@ -75,9 +76,9 @@ case class LUMIXEDParams(
   require(!(GROUP_SCALE_ALIGNED &&
             GROUP_SCALE_DEFERRED))
 
-  require(!ROUNDED_ACCUMULATION ||
-    (FP_ACTIVATIONS && FP_BITS == 32 &&
-     !GROUP_SCALE_ALIGNED && !GROUP_SCALE_DEFERRED))
+  // FP32 rounded mode is selected by this single flag. Group scaling uses
+  // fragment RNE + exact FP16 widening + FP32 FMA; OFF keeps its subtotal pipeline.
+  require(!ROUNDED_ACCUMULATION || (FP_ACTIVATIONS && FP_BITS == 32))
 }
 
 
@@ -151,9 +152,9 @@ object LUMIXED_Config {
     // ==================================================
 
     // SRAM output storage is always enabled.
-    // false: exact accumulation with final rounding.
-    // true:  FP32-rounded running accumulation.
-    // Rounded mode currently requires unscaled FP32.
+    // false: exact accumulation with one final rounding, with or without group scales.
+    // true: FP32 only. OFF rounds/registers subtotals before FP32 addition;
+    // ON rounds bank fragments, widens FP16 scales exactly and uses FP32 FMA.
     ROUNDED_ACCUMULATION = false,
 
     // ==================================================
@@ -166,7 +167,7 @@ object LUMIXED_Config {
     // Preserve full windows and scale bank fragments.
     GROUP_SCALE_DEFERRED = true,
 
-    // Parallel scaling multipliers (1..parallel_rows).
+    // Physical exact-scale or FP32 FMA lanes (1..parallel_rows).
     GROUP_SCALE_YS = 1,
 
     // Scaling modes are mutually exclusive.

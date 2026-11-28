@@ -76,6 +76,18 @@ if [ -f "$CONFIG_SOURCE" ]; then
     esac
   done
   TEST_FLAGS+=("-DLUMIXED_GROUP_SCALE_MODE=$scale_mode")
+  rounded=$(sed -n 's/^[[:space:]]*ROUNDED_ACCUMULATION[[:space:]]*=[[:space:]]*\(true\|false\).*/\1/p' "$CONFIG_SOURCE")
+  case "$rounded" in true) rounded_define=1 ;; false) rounded_define=0 ;;
+    *) echo "Missing or ambiguous ROUNDED_ACCUMULATION in $CONFIG_SOURCE" >&2; exit 1 ;; esac
+  for flag in "${TEST_FLAGS[@]}"; do
+    case "$flag" in -DLUMIXED_ROUNDED_ACCUMULATION=*)
+      if [ "$flag" != "-DLUMIXED_ROUNDED_ACCUMULATION=$rounded_define" ]; then
+        echo "Software rounding disagrees with Config.scala" >&2; exit 1
+      fi ;;
+    esac
+  done
+  TEST_FLAGS+=("-DLUMIXED_ROUNDED_ACCUMULATION=$rounded_define")
+
 
 fi
 

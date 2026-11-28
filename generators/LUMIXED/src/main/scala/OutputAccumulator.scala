@@ -9,8 +9,11 @@ import chisel3.util._
   * The first contribution in the first K window overwrites old contents, so
   * storage needs neither a whole-array reset nor clearing after DMA acceptance.
   */
-class OutputAccumulator(rows: Int, columns: Int, width: Int, roundedFP32: Boolean = false) extends Module {
+class OutputAccumulator(rows: Int, columns: Int, width: Int, roundedFP32: Boolean = false, fusedFP32: Boolean = false, fmaLanes: Int = 0) extends Module {
+  require(!fusedFP32 || roundedFP32, "FMA requires FP32 storage")
   require(!roundedFP32 || width == 32, "Rounded accumulation stores FP32 words")
+  private val lanes = if (fmaLanes == 0) rows else fmaLanes
+  require(lanes >= 1 && lanes <= rows)
   private val columnWidth = math.max(1, log2Ceil(columns + 1))
   private val rowWidth = math.max(1, log2Ceil(rows + 1))
   private val depth = (columns + 1) / 2
@@ -22,6 +25,7 @@ class OutputAccumulator(rows: Int, columns: Int, width: Int, roundedFP32: Boolea
     val delta = Input(Vec(rows, SInt(width.W)))
     val flags = Input(Vec(rows, UInt(3.W)))
     val first = Input(Bool())
+    val scale = Input(UInt(32.W)) // Used only by group-rounded FMA mode.
     val storeValid = Input(Bool())
     val storeRow = Input(UInt(rowWidth.W))
     val storeColumn = Input(UInt(columnWidth.W))
@@ -38,13 +42,35 @@ class OutputAccumulator(rows: Int, columns: Int, width: Int, roundedFP32: Boolea
   val storeColumn = RegEnable(io.storeColumn, io.storeValid)
   val storeRow = RegEnable(io.storeRow, io.storeValid)
 
+  val oldValues = Wire(Vec(rows, UInt(width.W)))
+  // A shared scaling engine retires row batches with disjoint lane ownership.
+  // Forward the full fused result; initialization is an explicit zero descriptor
+  // and clears every row without consuming a multiplier lane.
+  val fusedResults = if (fusedFP32) Some((0 until lanes).map { lane =>
+    val ys = (0 until rows).filter(_ % lanes == lane)
+    assert(io.first || PopCount(VecInit(ys.map(y => io.updateValid(y)))) <= 1.U,
+      "Two active rows contend for a shared FMA lane")
+    val fma = Module(new FP32AccumulatorFMA)
+    fma.io.fragment := Mux1H(ys.map(y => (io.updateValid(y) && !io.first) -> io.delta(y).asUInt))
+    fma.io.previous := Mux1H(ys.map(y => (io.updateValid(y) && !io.first) -> oldValues(y)))
+    fma.io.scale := io.scale
+    fma.io.result
+  }) else None
+  if (fusedFP32) {
+    when(io.first && io.updateValid.asUInt.orR) {
+      assert(io.delta.map(_ === 0.S).reduce(_ && _), "FMA first descriptor must initialize to zero")
+    }
+  }
   assert(!(io.readValid && io.storeValid), "Output SRAM compute/store ports overlap")
   for (y <- 0 until rows) {
     val oldWord = Mux(previousValid(y) && previousColumn === io.updateColumn,
       previousWords(y), readWords(y)(io.updateColumn(0)))
     val oldValue = Mux(io.first, 0.S(width.W), oldWord(width - 1, 0).asSInt)
+    oldValues(y) := oldValue.asUInt
     val oldFlags = Mux(io.first, 0.U(3.W), oldWord(width + 2, width))
-    val sum = if (roundedFP32) {
+    val sum = if (fusedFP32) {
+      Mux(io.first, 0.U, fusedResults.get(y % lanes))
+    } else if (roundedFP32) {
       // Round every running-sum update to IEEE FP32 RNE. The incoming subtotal
       // has already been rounded by the controller; no exact-width SRAM remains.
       val add = Module(new FP32AccumulatorAdd)

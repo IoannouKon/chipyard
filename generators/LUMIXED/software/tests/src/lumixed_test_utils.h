@@ -17,7 +17,8 @@
 static int lumixed_test_printf(const char *fmt, ...) {
     if (strncmp(fmt, "PASS", 4) && strncmp(fmt, "FAIL", 4) &&
         strncmp(fmt, "Exact matches:", 14) && strncmp(fmt, "Mismatch", 8) &&
-        strncmp(fmt, "HW_CYCLES ", 10)) return 0;
+        strncmp(fmt, "HW_CYCLES ", 10) && strncmp(fmt, "LUMIXED_OUTPUT ", 15) &&
+        strncmp(fmt, "NUMERICAL_CHECK=HOST_REQUIRED", 29)) return 0;
     va_list args;
     va_start(args, fmt);
     int result = vprintf(fmt, args);
@@ -316,6 +317,18 @@ void generate_random_float_matrix(float *matrix, int size, float min_val, float 
         matrix[i] = min_val + rand_frac * (max_val - min_val); // [min_val, max_val)
     }
 }
+
+#if LUMIXED_ROUNDED_ACCUMULATION
+// Export raw FP32 bits. Host validation avoids introducing FPU instructions on
+// Rocket configurations without an FPU and never labels simulator exit as PASS.
+static void lumixed_emit_fp32_outputs(const output_t *values, int filter,
+                                      int rows, int columns) {
+    for (int row = 0; row < rows; ++row)
+        for (int col = 0; col < columns; ++col)
+            printf("LUMIXED_OUTPUT %d %d %d %08x\n", filter, row, col,
+                   (uint32_t)values[row * columns + col]);
+}
+#endif
 
 int compare_matrices(output_t* outputMatrix_HW, output_t* outputMatrix_SW,
                     int num_filters, int Rin, int Cout
