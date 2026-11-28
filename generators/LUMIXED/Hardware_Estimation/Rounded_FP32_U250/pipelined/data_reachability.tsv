@@ -1,4 +1,0 @@
-check	count
-registered_write_capture_d_pins	64
-registered_write_output_ports	64
-linked_core_tilelink_write_data_pins	64

@@ -1,4 +1,0 @@
-# Local compiled executables and intentionally cycle-capped diagnostics.
-diagnostics/
-**/*.riscv
-**/*.o

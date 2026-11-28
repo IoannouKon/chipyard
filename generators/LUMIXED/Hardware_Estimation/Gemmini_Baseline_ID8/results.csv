@@ -1,3 +1,0 @@
-design,status,stage,part,target_mhz,threads,setup_slack_ns,hold_slack_ns,internal_setup_slack_ns,internal_hold_slack_ns,estimated_internal_setup_fmax_mhz,dynamic_power_w,static_power_w,total_power_w,power_confidence,lut_total,ff,dsp,bram36,bram18,uram
-gemmini_baseline_4x4_fp32_w8_id8,ROUTED_TIMING_FAIL,post_route,xcu250-figd2104-2-e,50,8,-0.051,-2.325,-0.051,0.002,49.873,0.209,2.948,3.157,Medium,54494,26464,169,0,64,0
-gemmini_baseline_8x8_fp32_w8_id8,ROUTED_TIMING_FAIL,post_route,xcu250-figd2104-2-e,50,8,0.243,-2.548,0.243,0.009,50.615,0.277,2.949,3.227,Medium,130038,46210,224,0,0,0

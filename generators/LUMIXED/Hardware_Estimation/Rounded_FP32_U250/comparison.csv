@@ -1,3 +1,0 @@
-variant,routing,timing,lut_total,ff,dsp,bram36,bram18,uram,core_luts,core_ff,core_bram36,context_luts,context_ff,context_bram36,context_bram18,dynamic_w,static_w,total_w,core_dynamic_w,global_setup_ns,global_hold_ns,core_setup_ns,core_hold_ns,critical_data_path_ns,setup_period_estimate_ns,setup_fmax_estimate_mhz
-rounded_unpipelined,fully_routed,ROUTED_TIMING_FAIL,61868,8334,0,70,1,0,61419,6471,56,449,1863,14,1,0.218,2.949,3.166,0.206,-5.096,0.006,-5.096,0.019,24.695,25.096,39.847
-rounded_pipelined,fully_routed,ROUTED_TIMING_PASS,60955,8351,0,70,1,0,60504,6488,56,451,1863,14,1,0.182,2.948,3.131,0.172,0.851,0.01,0.851,0.011,18.799,19.149,52.222

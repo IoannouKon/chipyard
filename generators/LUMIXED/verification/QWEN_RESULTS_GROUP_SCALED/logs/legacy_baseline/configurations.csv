@@ -1,9 +1,0 @@
-design,B,RF,YS,DMA_ID,Rin_capacity,Cin_capacity,Cout_capacity,activation,scale,output,DMA_Bytes,W_BUFFS,GROUP_SCALE_DEFERRED,GROUP_SCALE_ALIGNED,BRAM_OUTPUTS,SKIP_ZERO_WEIGHTS,FLEXIBLE_BANK_GROUPING,EARLY_WEIGHT_BUFFER_RELEASE,WEIGHT_DMA_BURSTS,SCALE,DEBUG
-B8_RF8_YS2_ID8_R4,8,8,2,8,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True
-B8_RF8_YS2_ID16_R4,8,8,2,16,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True
-B4_RF4_YS4_ID8_R4,4,4,4,8,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True
-B4_RF4_YS4_ID16_R4,4,4,4,16,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True
-B16_RF4_YS2_ID8_R4,16,4,2,8,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True
-B16_RF4_YS2_ID16_R4,16,4,2,16,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True
-B8_RF4_YS4_ID8_R4,8,4,4,8,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True
-B8_RF4_YS4_ID16_R4,8,4,4,16,4,3072,3072,FP32,FP16,FP32,8,2,True,False,True,False,False,False,False,False,True
